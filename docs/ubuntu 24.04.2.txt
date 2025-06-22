@@ -1,0 +1,16 @@
+run all cmd as root!
+
+#div
+apt-get install git
+apt-get install curl
+
+#install llvm (18) + clang
+apt install clang
+
+
+
+#install clion
+#https://www.jetbrains.com/help/clion/installation-guide.html#standalone_linux
+
+#install qemu. (10)
+#separate doc

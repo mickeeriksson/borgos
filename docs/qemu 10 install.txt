@@ -1,0 +1,15 @@
+apt-get install python3-venv
+apt-get install python3-sphinx
+apt-get install ninja-build
+apt-get install libglib2.0-dev
+apt-get install libpixman-1-dev
+apt-get install libgtk-3-dev
+
+wget https://download.qemu.org/qemu-10.0.2.tar.xz
+tar xvJf qemu-10.0.2.tar.xz
+cd qemu-10.0.2
+
+./configure --target-list=x86_64-softmmu,x86_64-linux-user --enable-modules --enable-gtk
+
+make
+make install

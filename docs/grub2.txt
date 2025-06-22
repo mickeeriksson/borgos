@@ -1,0 +1,4 @@
+apt-get install grub2
+apt-get install grub-efi
+apt-get install mtools
+
