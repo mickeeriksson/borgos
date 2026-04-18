@@ -1,0 +1,80 @@
+//#include "./include/mach/mconfig.h"
+
+#define KERNEL_PHYS_BASE          0x100000              // Physical, Kernel is loaded to 1Mb physical
+#define BOOT_ENTRY                KERNEL_PHYS_BASE      // Boot Entry, used in linker
+//#ifdef NOMMU
+//    #define KERNEL_UPPER_HALF_OFFSET  0x0               // Virt = phys, when no MMU is used
+//#else
+//#define KERNEL_UPPER_HALF_OFFSET  0x0        // upper half, Virtual offsett
+//#define KERNEL_UPPER_HALF_OFFSET  0xC0000000        // upper half, Virtual offsett
+#define KERNEL_UPPER_HALF_OFFSET   0xFFFF800000000000  //128Tb of 256tb total space in PML4 (48bit)
+
+ENTRY(_start)
+SECTIONS {
+   _LD_RELOCATE_BASE = KERNEL_UPPER_HALF_OFFSET;    /* the code should be relocated to 3GB + 1MB */
+   _LD_BOOT_ENTRY = BOOT_ENTRY;                      /* kernel is loaded at phys 1MB */
+
+
+//    . = (_LD_BOOT_ENTRY + _LD_RELOCATE_BASE);
+    . = _LD_BOOT_ENTRY;
+
+//    .bootheader : AT (ADDR (.bootheader) ){
+//        KEEP(*(.multiboot))
+//        KEEP(*(.multiboot2))
+//    }
+
+
+//    .boot ALIGN (4K) : AT (ADDR (.boot) - _LD_RELOCATE_BASE){
+    .boot ALIGN (4K) : AT (ADDR (.boot) ){
+        KEEP(*(.multiboot))
+        KEEP(*(.multiboot2))
+        KEEP(*(.text.boot))
+//        KEEP(*(.text.bootmmu))
+    }
+//    .trampoline ALIGN (4K) : AT (ADDR (.trampoline) - _LD_RELOCATE_BASE){
+//        KEEP(*(.text.trampoline))
+//    }
+
+	. += _LD_RELOCATE_BASE;
+
+    .text.bootupperhigh ALIGN (4K) : AT (ADDR (.text.bootupperhigh) - _LD_RELOCATE_BASE){
+          *(.text.bootupperhigh)
+    }
+
+//    .text ALIGN (4K) : AT (ADDR (.text) - _LD_RELOCATE_BASE){
+    .text  : AT (ADDR (.text) - _LD_RELOCATE_BASE){
+          *(.text)
+          *(.text.*)
+    }
+//    . = ALIGN(4K);
+    .rodata ALIGN (4K) : AT (ADDR (.rodata) - _LD_RELOCATE_BASE){
+      *(.rodata)
+      *(.rodata.*)
+    }
+//    . = ALIGN(4K);
+    .data ALIGN (4K) : AT (ADDR (.data) - _LD_RELOCATE_BASE){
+      *(.data)
+    }
+
+    .data.rel.ro ALIGN (4K) : AT (ADDR (.data.rel.ro) - _LD_RELOCATE_BASE){
+       *(.data.rel.ro.local*) *(.data.rel.ro .data.rel.ro.*)
+    }
+
+//    . = ALIGN(4K);
+    .bss ALIGN (4K) : AT (ADDR (.bss) - _LD_RELOCATE_BASE){
+      *(.bss COMMON)
+      *(.bss*)
+    }
+
+    . = ALIGN(4K);
+    //. += 0x1000; /* 4kB of stack memory */
+    //stack_top = .;
+    .ldata ALIGN (4K) : AT (ADDR (.ldata) - _LD_RELOCATE_BASE){
+      *(.ldata)
+    }
+    .lbss ALIGN (4K) : AT (ADDR (.lbss) - _LD_RELOCATE_BASE){
+      *(.lbss)
+    }
+    . = ALIGN(4K);
+    _bootimage_end = .;
+}

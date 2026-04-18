@@ -1,3 +1,40 @@
+#parallells stuff
+#map osdev to psdev
+cd /home/micke
+ln -s /media/psf/osdev
+
+
+apt-get update
+apt-get install emacs-nox
+apt-get install git
+apt-get install curl
+
+apt-get install clang
+apt-get install lld  #llvm ld
+apt-get install lldb #llvm gdb
+
+#Qemu 10.2.2
+#Separate doc
+
+#grub stuff
+apt-get install grub-efi
+apt-get install mtools
+
+sudo snap install clion --classic
+
+
+
+
+
+
+
+
+
+
+
+
+# old stuff dont use
+
 run all cmd as root!
 
 #div
@@ -6,7 +43,8 @@ apt-get install curl
 
 #install llvm (18) + clang
 apt install clang
-
+apt install llvm
+apt install lld
 
 
 #install clion
