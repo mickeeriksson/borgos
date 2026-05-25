@@ -30,7 +30,9 @@
 //Include other code-chunks
 #define MULTIBOOT                                       //Use Multiboot headers (GRUB)
 
-#define BOOTMEM_PRESERVE16M_DMA       1                 // Dont use 16mb DMA for bootmem, ie start botmem at 16mb-adress
+#define BOOTMEM_STARTMB       16                        // Dont use 16mb DMA for bootmem, ie start botmem at 16mb-adress
+#define MAXBOOTPGD_PFN (1048576-1)                      //max mem mmu mappen in boot.s, 4gb OBS utger maxPFN INTE antal pages därav -1 efter pfn startar på 0.
+
 
 #define CONFIG_PIC_DISABLE                1
 #define CONFIG_ACPI               1

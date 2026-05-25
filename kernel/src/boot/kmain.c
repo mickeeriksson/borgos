@@ -1,6 +1,10 @@
-
+#include "types.h"
 
 //extern void hal_init_early(void);
+
+
+adr_t bootimage_start = 0; //This should be a phys address
+adr_t bootimage_end = 0; //This should be a phys address
 
 /*
     When kmain is called.

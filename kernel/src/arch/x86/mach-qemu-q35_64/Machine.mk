@@ -18,7 +18,7 @@ OBJCOPY = x86_64-linux-gnu-objcopy
 ##LDFLAGS = -melf_i386
 #LDFLAGS = -melf_x86_64
 
-CFLAGS = -target x86_64-none-elf -Wall -Werror  -Wno-unused-but-set-variable -O0  -std=c11 -ffreestanding -nostdlib -mcmodel=large -static -mno-red-zone -mgeneral-regs-only $(DQEMU) -ggdb -c
+CFLAGS = -target x86_64-none-elf -Wall -Werror  -Wno-unused-but-set-variable -Wno-division-by-zero -O0  -std=c11 -ffreestanding -nostdlib -mcmodel=large -static -mno-red-zone -mgeneral-regs-only $(DQEMU) -ggdb -c
 #-Wno-unused-parameter -nostartfiles
 
 ASFLAGS = -target x86_64-none-elf -static $(DQEMU) -ggdb -c
@@ -26,5 +26,5 @@ ASFLAGS = -target x86_64-none-elf -static $(DQEMU) -ggdb -c
 LDFLAGS = -nostdlib
 
 KERNEL_CSRC := $(wildcard $(MACHDIR)/*.c) $(wildcard $(CPUDIR)/*.c)
-KERNEL_ASMSRC = $(wildcard $(ARCHDIR)/*.S) $(wildcard $(MACHDIR)/*.S)
+KERNEL_ASMSRC = $(wildcard $(ARCHDIR)/*.S) $(wildcard $(MACHDIR)/*.S) $(wildcard $(CPUDIR)/*.S)
 #KERNEL_ASMSRC := $(KERNEL_ASMSRC)

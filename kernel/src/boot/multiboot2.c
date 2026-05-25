@@ -202,6 +202,8 @@ RESULT multiboot2_set_bootmem(struct bootmem_info* bootmem,adr_t bootimage_end) 
                     log_msg("Found acceptable bootmem at addr: 0x%x-0x%x len=%dKb \n", start,end,len/(1024) );
 
                     adr_t bootmemstart = start;
+
+
                     if ((bootimage_end >= start) && (bootimage_end < end)){
                         log_msg(" kernel is in this range adjust to bootimage_end at addr: 0x%x\n", bootimage_end );
                         bootmemstart = bootimage_end;
@@ -212,11 +214,30 @@ RESULT multiboot2_set_bootmem(struct bootmem_info* bootmem,adr_t bootimage_end) 
 
                     }
 
+#ifdef BOOTMEM_STARTMB
+                    if (end > (BOOTMEM_STARTMB*1024*1024 + 8*1024*1024 )){
+                        // at least 8mb free over BOOTMEM_STARTMB
+                        // keep first 16mb free for DMA transfer
+                        bootmemstart = BOOTMEM_STARTMB*1024*1024; // start at 16mb
+                        if (bootimage_end >= bootmemstart) {
+                            PANIC("BootImage INSIDE bootmemstart set by BOOTMEM_STARTMB");
+                        }
+                        log_msg("  BOOTMEM_STARTMB set to %d, adjust to BOOTMEM_STARTMB at addr: 0x%x\n", BOOTMEM_STARTMB, bootmemstart );
+                    }
+#endif
+
+                    bootmemstart = PAGEALIGN_UP(bootmemstart);
+                    bootmem->addr = bootmemstart;
+                    bootmem->heaptop = bootmemstart;
+                    bootmem->maxsize = (start + len) - bootmemstart;
+                    log_msg("SET bootmem at 0x%x, maxsize=0x%x\n",bootmem->addr,bootmem->maxsize);
+
                     uint32_t mbisstart = mbi_addr;
                     uint32_t mbisize = *((uint32_t*) mbi_addr);
                     log_msg("original multiboot2 record at addr: 0x%x with size %d\n", mbisstart,mbisize );
-                    if ((mbisstart >= bootmemstart) && (mbisstart < end)){
-                        log_msg(" multiboot2 structure is in this range relocate!!\n" );
+
+                    //if ((mbisstart >= bootmemstart) && (mbisstart < end)){
+                        //log_msg(" multiboot2 structure is in this range relocate!!\n" );
 
                         //align to 4096
                         //bootmem_start_address = (bootmem_start_address & ~0xFFF) + 0x1000;
@@ -226,27 +247,63 @@ RESULT multiboot2_set_bootmem(struct bootmem_info* bootmem,adr_t bootimage_end) 
                         mbisize = *((uint32_t*) mbi_addr);
                         log_msg("relocated multiboot2 record at addr: 0x%x with size %d\n", mbisstart,mbisize );
 
-                        log_msg(" multiboot2 structure is in this range adjust to mbi end at addr: 0x%x\n", mbisstart+mbisize );
-                        bootmemstart = mbisstart+mbisize;
-                    }
+                        //log_msg(" multiboot2 structure is in this range adjust to mbi end at addr: 0x%x\n", mbisstart+mbisize );
+                        //bootmemstart = mbisstart+mbisize;
+                        bootmem->heaptop = mbisstart+mbisize;
+                    //}
 
                     //test for multiboot modules
                     log_msg("TODO test for multiboot modules\n");
 
-                    bootmemstart = PAGEALIGN_UP(bootmemstart);
-                    bootmem->addr = bootmemstart;
-                    bootmem->heaptop = bootmemstart;
-                    bootmem->maxsize = (start + len) - bootmemstart;
-                    log_msg("SET bootmem at 0x%x, maxsize=0x%x\n",bootmem->addr,bootmem->maxsize);
+
 
                     return OK;
                 }
             }
         }
+
+
     }
     return ERROR;
 }
 
+RESULT multiboot2_set_bootmem_map(struct bootmem_info* bootmem) {
+    struct multiboot_tag *mmaptag = multiboot2_gettag(MULTIBOOT_TAG_TYPE_MMAP) ;
+    if (mmaptag!=0) {
+        log_msg("GOT MULTIBOOT_TAG_TYPE_MMAP\n");
+        struct multiboot_tag_mmap* mmap=(struct multiboot_tag_mmap*) mmaptag;
+        log_msg("multiboot2 mmap->entry_size:      %d\n", mmap->entry_size);
+        log_msg("multiboot2 mmap->entry_version:   %d\n", mmap->entry_version);
+
+        //build bootmem memory map
+        int multiboot2_entries = (mmap->size / mmap->entry_size);
+        size_t bootmemMapSize = (multiboot2_entries +1) * sizeof(struct bootmem_memmapentry);
+        log_msg("multiboot2_entries=%d\n",multiboot2_entries);
+        log_msg("bootmemMapSize=%d (0x%x)\n",bootmemMapSize,bootmemMapSize);
+
+        log_msg("bootmemMapSize=%d (0x%x)\n",bootmemMapSize,bootmemMapSize);
+        bootmem_memmapentry = bootmem_alloc(bootmemMapSize);
+
+        int i=0;
+        for (i=0;(i*mmap->entry_size < mmap->size);i++) {
+            struct multiboot_mmap_entry *mmapentry = &mmap->entries[i];
+            log_msg("parse entry=%d\n",mmapentry->type);
+            bootmem_memmapentry[i].addr = mmap->entries[i].addr;
+            bootmem_memmapentry[i].size = mmap->entries[i].len;
+            switch (mmap->entries[i].type) {
+                case MULTIBOOT_MEMORY_AVAILABLE:
+                    bootmem_memmapentry[i].type = BOOTMEMTYPE_FREE;
+                    break;
+                default:
+                    bootmem_memmapentry[i].type = BOOTMEMTYPE_UNKNOWN;
+                    break;
+            }
+        }
+        bootmem_memmapentry[i].type = BOOTMEMTYPE_END;
+        return OK;
+    }
+    return ERROR;
+}
 
 void multiboot2_init(adr_t addr) {
     mbi_addr = addr;

@@ -18,6 +18,9 @@ SECTIONS {
 //    . = (_LD_BOOT_ENTRY + _LD_RELOCATE_BASE);
     . = _LD_BOOT_ENTRY;
 
+    _bootimage_start = .;
+
+
 //    .bootheader : AT (ADDR (.bootheader) ){
 //        KEEP(*(.multiboot))
 //        KEEP(*(.multiboot2))
@@ -75,6 +78,6 @@ SECTIONS {
     .lbss ALIGN (4K) : AT (ADDR (.lbss) - _LD_RELOCATE_BASE){
       *(.lbss)
     }
-    . = ALIGN(4K);
+    //. = ALIGN(4K);
     _bootimage_end = .;
 }

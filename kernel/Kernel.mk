@@ -19,6 +19,7 @@ KERNEL_CSRC := $(KERNEL_CSRC) \
 $(wildcard $(SRCDIR)/boot/*.c) \
 $(wildcard $(SRCDIR)/kcore/*.c) \
 $(wildcard $(SRCDIR)/driver/*.c) \
+$(wildcard $(SRCDIR)/mem/*.c) \
 $(wildcard $(SRCDIR)/driver/video/*.c)
 
 LIBCDIR = ./../libc/src
@@ -60,6 +61,7 @@ fastclean:
 #	#rm -rf target/x86_64-firstos/debug/incremental
 #	#rm -rf target/debug/incremental
 	rm -rf $(OBJDIR)
+	rm -rf $(TARGETDIR)/*
 	rm -rf $(TARGETDIR)
 	#@rm -rf  $(LIBK_OBJS)
 	mkdir --parents $(OBJDIRS)

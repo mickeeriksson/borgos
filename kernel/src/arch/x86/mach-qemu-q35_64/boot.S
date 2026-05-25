@@ -125,7 +125,8 @@ base:
     //jump to long mode.
     mov $enter_long_mode,%eax
     //jmp $0x08,$V2P(enter_long_mode)
-    jmp $0x08,$enter_long_mode
+    //jmp $0x08,$enter_long_mode
+    jmp $0x10,$enter_long_mode
 
 
 
@@ -340,7 +341,7 @@ enable_paging:
 .code64
 enter_long_mode:
     //; load 0x10 (DATA) into all data segment registers
-    mov $0x10,%rax
+    mov $0x20,%rax
     mov %rax,%ss
     mov %rax,%ds
     mov %rax,%es
@@ -374,6 +375,7 @@ GDT64:
 .NULLSEG:
     .set GDTIDX_NULLSEG, (.NULLSEG - GDT64)
     .quad 0         //8bytes null seg
+    .quad 0         //8bytes null seg
 .KCODE64:
     .set GDTIDX_KCODE64, (.KCODE64 - GDT64)
     .long 0xFFFF    //base + limit  bit 31:0
@@ -381,6 +383,7 @@ GDT64:
     .byte ((1<<1) | (1<<3) | (1<<4) | (1<<7) )     //access present(7), notsys(4), exec(3),rw(1)
     .byte ((1<<7) | (1<<5) | 0xF)     //flags 4klimit(7), sz32(6), longmode(5) + limit
     .byte 0x0       //base high bit 24-32
+    .quad 0         //8bytes null seg
 .KDATA64:
     .set GDTIDX_KDATA64, (.KDATA64 - GDT64)
     .long 0xFFFF    //base + limit  bit 31:0
@@ -388,6 +391,7 @@ GDT64:
     .byte ((1<<1) | (1<<4) | (1<<7) )     //access present(7), notsys(4), exec(3),rw(1)
     .byte ((1<<7) | (1<<6) | 0xF)     //flags 4klimit(7), sz32(6), longmode(5) + limit
     .byte 0x0       //base high bit 24-32
+    .quad 0         //8bytes null seg
 .GDTPTR:
     .word (. - GDT64 - 1)        //size of GDT table
     .quad GDT64
