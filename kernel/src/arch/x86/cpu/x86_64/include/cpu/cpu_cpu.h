@@ -13,6 +13,8 @@ struct arch_cpu_info {
     uint8_t     xapic_logicalid;            // 8 bit  xAPIC ID
     uint32_t    x2apic_logicalid;           // 32 bit x2APIC ID
 
+    uint64_t    cputimer_hz;
+    
     uint32_t    cpuid_maxbasicleafs;
     char cpuid_vendorstring[32];
     uint32_t cpuid_feature_ebx;
@@ -25,6 +27,7 @@ struct arch_cpu_info {
 
 //https://wiki.osdev.org/CPUID
 #define CPUID_FEAT_EDX_APIC         (1 << 9)   // 0x200
+#define CPUID_FEAT_EDX_TSC          (1 << 4)   // 0x10
 
 
 /* issue a single request to CPUID.*/
@@ -163,5 +166,8 @@ static inline void cpu_enable_irq(void)
 //extern uint32_t cpu_disable_irq(void);
 //extern uint32_t cpu_read_irq(void);
 //extern uint32_t cpu_read_DAIF(void);
+
+extern int arch_cpu_hasfeature_APIC(void);
+extern int arch_cpu_hasfeature_RDTSC(void);
 
 #endif

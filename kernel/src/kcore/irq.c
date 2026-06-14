@@ -1,11 +1,55 @@
 #include "cpu.h"
 #include "error.h"
 #include "log.h"
+#include "irq.h"
 #include "cpu/cpu_getcpu.h"
 
 // Pushcli/popcli are like cli/sti except that they are matched:
 // it takes two popcli to undo two pushcli.  Also, if interrupts
 // are off, then pushcli, popcli leaves them off.
+
+
+IrqHandler irqhandler[256];
+
+//TODO, reqwrite to make each irq a vector of handlers to allow an irq to trigger multiple handlers
+
+void irq_inithandlers(void) {
+    for (int i = 0; i < 256; i++) {
+        irqhandler[i] = NULL;
+    }
+}
+
+void irq_add_irq_handler(uint8_t irq,IrqHandler handler) {
+    irq_save();
+    irqhandler[irq]=handler;
+    irq_restore();
+}
+
+void irq_process_irq(uint8_t irq){
+    if (irqhandler[irq] != NULL) {
+        irqhandler[irq]();
+    }
+    /*
+    let elistlock = &mut IRQHANDLERS[irq as usize].lock();
+    let elist : &mut Vec<IrqHandlerInfo> = elistlock.as_mut();
+
+    if elist.len() == 0 {
+        warn!("No registered handlers for IRQ {}",irq);
+    }
+
+    for e in &mut *elist {
+        debug!("Delegate to IRQ HANDLER ENTRY {:?}",e);
+        (e.irq_cb)(e.dev);
+    }*/
+}
+
+void irq_cpu_localtimer_tick_cb(){
+    cpu_t* cpu = CURRENTCPU;
+    int irqOn = cpu_read_irq();
+    log_msg("intenable=%d irqon=%d\n",cpu->intenable,irqOn);
+    log_msg("TICK CPU[%d]\n",cpu->cpuid);
+    log_msg("intenable=%d irqon=%d\n",cpu->intenable,cpu_read_irq());
+}
 
 
 // turn off irq

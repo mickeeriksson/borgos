@@ -28,36 +28,27 @@ static inline int cpu_get_xAPIC_id(void){
 }*/
 
 static inline int arch_getcpu_xAPIC_logical_id(void){
-    //PANIC("arch_getcpu_cpuid - NOT IMPLEMENTED!");
     unsigned int eax,ebx,ecx,edx;
     __get_cpuid(1, &eax, &ebx, &ecx, &edx);
     int xAPIXid = ebx>>24; //logicalid
-    log_msg("arch_getcpu_xAPIC_logical_id return xAPIXid=%d\n",xAPIXid);
-    //    int logicalid = cpu_get_xAPIC_id();
+    //log_msg("arch_getcpu_xAPIC_logical_id return xAPIXid=%d\n",xAPIXid);
     return xAPIXid;
-    //return 0;
 }
 
 static inline int arch_getcpu_cpuid(void){
-    //PANIC("arch_getcpu_cpuid - NOT IMPLEMENTED!");
     unsigned int eax,ebx,ecx,edx;
     __get_cpuid(1, &eax, &ebx, &ecx, &edx);
     int xAPIXid = ebx>>24; //logicalid
-    log_msg("arch_getcpu_cpuid return xAPIXid=%d\n",xAPIXid);
-    //    int logicalid = cpu_get_xAPIC_id();
+    //log_msg("arch_getcpu_cpuid return xAPIXid=%d\n",xAPIXid);
     return apic_id_cpumap[xAPIXid]->cpuid;
-    //return 0;
 }
 
 static inline cpu_t* arch_getcpu_cpu(void){
-    //PANIC("arch_getcpu_cpu - NOT IMPLEMENTED!");
     unsigned int eax,ebx,ecx,edx;
     __get_cpuid(1, &eax, &ebx, &ecx, &edx);
     int xAPIXid = ebx>>24; //logicalid
-//    int logicalid = cpu_get_xAPIC_id();
-    log_msg("arch_getcpu_cpu return xAPIXid=%d\n",xAPIXid);
+    //log_msg("arch_getcpu_cpu return xAPIXid=%d\n",xAPIXid);
     return apic_id_cpumap[xAPIXid];
-    //return 0;
 }
 
 #define CURRENTCPU  (arch_getcpu_cpu())

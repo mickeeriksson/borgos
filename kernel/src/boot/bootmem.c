@@ -31,7 +31,7 @@ void bootmem_memmnap_debugprint(void) {
 
 
 
-        log_msg("  size = 0x%lx, end = 0x%x", ptr->size,(ptr->addr + ptr->size-1));
+        log_msg("  size = 0x%lx, end = 0x%lx", ptr->size,(ptr->addr + ptr->size-1));
         size_t szmb = ptr->size / (1024*1024);
         if (szmb > 0) {
             log_msg("  (%d Mb)\n", szmb);
@@ -42,7 +42,7 @@ void bootmem_memmnap_debugprint(void) {
 
         int pfnstart = PHYS2PFN(ptr->addr);
         int pfnend = PHYS2PFN(ptr->addr + ptr->size-1);
-        log_msg("  pfn = %d - %d\n", pfnstart,pfnend);
+        log_msg("  pfn = %d - %d (%d)\n", pfnstart,pfnend,(pfnend-pfnstart)+1);
 
         ptr++;
     }

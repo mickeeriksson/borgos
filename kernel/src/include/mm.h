@@ -17,10 +17,10 @@ extern size_t PFN_NORMAL_MAX;
 
 #define MMLOG(...)    log_msg(__VA_ARGS__)
 //#define MMLOG(...)
-#define MMLOG2(...)    log_msg(__VA_ARGS__)
-//#define MMLOG2(...)
-#define MMLOG3(...)    log_msg(__VA_ARGS__)
-//#define MMLOG3(...)
+//#define MMLOG2(...)    log_msg(__VA_ARGS__)
+#define MMLOG2(...)
+//#define MMLOG3(...)    log_msg(__VA_ARGS__)
+#define MMLOG3(...)
 
 
 #ifdef NOMMU
@@ -40,20 +40,19 @@ extern size_t PFN_NORMAL_MAX;
  */
 static inline adr_t PAGEALIGN_UP (adr_t base)
 {
-    //adr_t alignmask = ~(PAGESIZE-1);
     return (base+PAGESIZE-1) & PAGEMASK;
 }
 static inline adr_t PAGEALIGN_DOWN (adr_t base)
 {
-    //adr_t alignmask = ~(PAGESIZE-1);
     return (base) & PAGEMASK;
 }
 
 #define PHYS2PFN(v)     (((v)>>PAGESHIFT) - PFN_OFFSET)
 
 #define PFN2PHYS(p)     ( (p+PFN_OFFSET)<<PAGESHIFT )
-
-#define PAGE2PFN(p)    ( ((adr_t)p - (adr_t)pageframemap) / sizeof(pageframe_t) )
+#define PFN2VIRT(p)     ( P2V((p+PFN_OFFSET)<<PAGESHIFT) )
+#define PAGE2PFN(p)    ( ((adr_t)p - (adr_t)pageframemap) / sizeof(page_t) )
+#define PAGE2PHYS(p)    ( (PAGE2PFN(p)+PFN_OFFSET)<<PAGESHIFT )
 #define PAGE2VIRT(p)    ( P2V((PAGE2PFN(p)+PFN_OFFSET)<<PAGESHIFT) )
 
 
@@ -74,8 +73,13 @@ typedef struct free_area_struct {
 
 //memory flags
 #define GFP_DMA16       0x01      //GetFreePage from DMA16 zone
-//#define GFP_DMA32       0x02      //GetFreePage from DMA32 zone
-//#define MEMBLOCK_FREE  0x8000
+#define GFP_DMA32       0x02      //GetFreePage from DMA32 zone
+#define MEMBLOCK_FREE  0x8000
+
+#define MMU_NORMAL  0x00
+#define MMU_DEVICE  0x01
+
+#define MMU_PTE_PCD  (1<<4)  //PCD bit,
 
 
 typedef struct zone_struct {
@@ -99,21 +103,29 @@ typedef struct zone_struct {
     //    unsigned long       size;
 } zone_t;
 
-typedef struct pageframe {
+typedef struct page {
     // these must be first (free area handling)
     struct list_head pagelist;              //list of pages used for freelist, usedlist in page_alloc.c
     int order;                              //0=1 page, 1=2pages, 2=4pages
     uint32_t usecount;                         //Usage count, release when decreased to 0
     zone_t *zone;                           //zone this page belongs to.
     int memsegment;                         // idx to bootmem_memmapentry , cxhange this to pointer later on.
-} pageframe_t;
+} page_t;
 
-extern pageframe_t *pageframemap;
+extern page_t *pageframemap;
+extern void* kernelpagetable;
 
-extern void pageframe_init(pageframe_t *frame) ;
-extern void pageframe_debugprint_free(void);
-extern void pageframe_free_page_pfn(int pfn);
-extern pageframe_t* pageframe_alloc_page(uint32_t flags);
-extern pageframe_t* pageframe_alloc_pages(uint32_t flags, unsigned int order);
+extern void page_init(page_t *frame) ;
+extern void page_debugprint_free(void);
+extern void page_free_page_pfn(int pfn);
+extern page_t* page_alloc_page(uint32_t flags);
+extern page_t* page_alloc_pages(uint32_t flags, unsigned int order);
+extern void* page_alloc_pages_virt(uint32_t flags, unsigned int order);
+
+extern void mmu_map_page(void* pagetable,adr_t paddr,adr_t vaddr,uint64_t flags) ;
+
+extern void* kmalloc(size_t size, uint32_t flags) ;
+extern void kfree(void* ptr);
+extern void kmalloc_debug_walk(void);
 
 #endif

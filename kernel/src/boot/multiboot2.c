@@ -9,6 +9,17 @@
 
 //extern adr_t bootmem_start_address;
 
+#define MULTIBOOT_TAG_TYPE_ACPI_OLD 14
+struct multiboot_tag_acpiold {
+    multiboot_uint32_t type;
+    multiboot_uint32_t size;
+    char Signature[8];
+    uint8_t Checksum;
+    char OEMID[6];
+    uint8_t Revision;
+    uint32_t RsdtAddress;
+};
+
 adr_t mbi_addr;
 
 void multiboot2_debugprint(adr_t addr) {
@@ -28,68 +39,70 @@ void multiboot2_debugprint(adr_t addr) {
             case MULTIBOOT_TAG_TYPE_LOAD_BASE_ADDR: // Boot command line
                 //struct multiboot_tag_load_base_addr* tag_load_base_addr=(multiboot_tag_load_base_addr*) tag;
                 //log_msg("multiboot2 load base addr: 0x%x\n", tag_load_base_addr->load_base_addr);
-                log_msg("MULTIBOOT_TAG_TYPE_LOAD_BASE_ADDR\n");
+                log_msg("  MULTIBOOT_TAG_TYPE_LOAD_BASE_ADDR\n");
                 struct multiboot_tag_load_base_addr* tag_load_base_addr=(struct multiboot_tag_load_base_addr*) tag;
-                log_msg("multiboot2 load base addr:        0x%x\n", tag_load_base_addr->load_base_addr);
+                log_msg("    multiboot2 load base addr:        0x%x\n", tag_load_base_addr->load_base_addr);
                 break;
             case MULTIBOOT_TAG_TYPE_CMDLINE: // Boot command line
-                log_msg("MULTIBOOT_TAG_TYPE_CMDLINE\n");
+                log_msg("  MULTIBOOT_TAG_TYPE_CMDLINE\n");
                 struct multiboot_tag_string* tag_cmdline=(struct multiboot_tag_string*) tag;
-                log_msg("multiboot2 cmd line:              %s\n", tag_cmdline->string);
+                log_msg("    multiboot2 cmd line:              %s\n", tag_cmdline->string);
 
                 break;
             case MULTIBOOT_TAG_TYPE_BOOT_LOADER_NAME: // Memory map
-                log_msg("MULTIBOOT_TAG_TYPE_BOOT_LOADER_NAME\n");
+                log_msg("  MULTIBOOT_TAG_TYPE_BOOT_LOADER_NAME\n");
                 struct multiboot_tag_string* tag_bootloadername=(struct multiboot_tag_string*) tag;
-                log_msg("multiboot2 Bootloadername:        %s\n", tag_bootloadername->string);
+                log_msg("    multiboot2 Bootloadername:        %s\n", tag_bootloadername->string);
                 break;
             case MULTIBOOT_TAG_TYPE_APM:
-                log_msg("MULTIBOOT_TAG_TYPE_APM\n");
+                log_msg("  MULTIBOOT_TAG_TYPE_APM\n");
                 //struct multiboot_tag_apm* tag_apm=(struct multiboot_tag_apm*) tag;
                 break;
             case MULTIBOOT_TAG_TYPE_MMAP:
-                log_msg("MULTIBOOT_TAG_TYPE_MMAP\n");
+                log_msg("  MULTIBOOT_TAG_TYPE_MMAP\n");
                 struct multiboot_tag_mmap* tag_mmap=(struct multiboot_tag_mmap*) tag;
-                log_msg("multiboot2 mmap->entry_size:      %d\n", tag_mmap->entry_size);
-                log_msg("multiboot2 mmap->entry_version:   %d\n", tag_mmap->entry_version);
+                log_msg("    multiboot2 mmap->entry_size:      %d\n", tag_mmap->entry_size);
+                log_msg("    multiboot2 mmap->entry_version:   %d\n", tag_mmap->entry_version);
                 break;
             case MULTIBOOT_TAG_TYPE_ELF_SECTIONS:
-                log_msg("MULTIBOOT_TAG_TYPE_ELF_SECTIONS\n");
+                log_msg("  MULTIBOOT_TAG_TYPE_ELF_SECTIONS\n");
                 //struct multiboot_tag_apm* tag_apm=(struct multiboot_tag_apm*) tag;
                 break;
             case MULTIBOOT_TAG_TYPE_BASIC_MEMINFO:
-                log_msg("MULTIBOOT_TAG_TYPE_BASIC_MEMINFO\n");
+                log_msg("  MULTIBOOT_TAG_TYPE_BASIC_MEMINFO\n");
                 //struct multiboot_tag_apm* tag_apm=(struct multiboot_tag_apm*) tag;
                 break;
             case MULTIBOOT_TAG_TYPE_BOOTDEV:
-                log_msg("MULTIBOOT_TAG_TYPE_BOOTDEV\n");
+                log_msg("  MULTIBOOT_TAG_TYPE_BOOTDEV\n");
                 //struct multiboot_tag_apm* tag_apm=(struct multiboot_tag_apm*) tag;
                 break;
             case MULTIBOOT_TAG_TYPE_FRAMEBUFFER:
-                log_msg("MULTIBOOT_TAG_TYPE_FRAMEBUFFER\n");
+                log_msg("  MULTIBOOT_TAG_TYPE_FRAMEBUFFER\n");
                 struct multiboot_tag_framebuffer* tag_fb=(struct multiboot_tag_framebuffer*) tag;
-                log_msg("multiboot2 fb->framebuffer_addr:  0x%x\n", tag_fb->common.framebuffer_addr);
-                log_msg("multiboot2 fb->framebuffer_pitch: %d\n", tag_fb->common.framebuffer_pitch);
-                log_msg("multiboot2 fb->framebuffer_width: %d\n", tag_fb->common.framebuffer_width);
-                log_msg("multiboot2 fb->framebuffer_height:%d\n", tag_fb->common.framebuffer_height);
-                log_msg("multiboot2 fb->framebuffer_bpp:   %d\n", tag_fb->common.framebuffer_bpp);
-                log_msg("multiboot2 fb->framebuffer_type:  %d\n", tag_fb->common.framebuffer_type);
+                log_msg("    multiboot2 fb->framebuffer_addr:  0x%x\n", tag_fb->common.framebuffer_addr);
+                log_msg("    multiboot2 fb->framebuffer_pitch: %d\n", tag_fb->common.framebuffer_pitch);
+                log_msg("    multiboot2 fb->framebuffer_width: %d\n", tag_fb->common.framebuffer_width);
+                log_msg("    multiboot2 fb->framebuffer_height:%d\n", tag_fb->common.framebuffer_height);
+                log_msg("    multiboot2 fb->framebuffer_bpp:   %d\n", tag_fb->common.framebuffer_bpp);
+                log_msg("    multiboot2 fb->framebuffer_type:  %d\n", tag_fb->common.framebuffer_type);
 
                 if (tag_fb->common.framebuffer_type==MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
-                    log_msg("multiboot2 fb->red_field_position:   %d\n", tag_fb->framebuffer_red_field_position);
-                    log_msg("multiboot2 fb->red_mask_size:        %d\n", tag_fb->framebuffer_red_mask_size);
-                    log_msg("multiboot2 fb->green_field_position: %d\n", tag_fb->framebuffer_green_field_position);
-                    log_msg("multiboot2 fb->green_mask_size:      %d\n", tag_fb->framebuffer_green_mask_size);
-                    log_msg("multiboot2 fb->blue_field_position:  %d\n", tag_fb->framebuffer_blue_field_position);
-                    log_msg("multiboot2 fb->blue_mask_size:       %d\n", tag_fb->framebuffer_blue_mask_size);
+                    log_msg("    multiboot2 fb->red_field_position:   %d\n", tag_fb->framebuffer_red_field_position);
+                    log_msg("    multiboot2 fb->red_mask_size:        %d\n", tag_fb->framebuffer_red_mask_size);
+                    log_msg("    multiboot2 fb->green_field_position: %d\n", tag_fb->framebuffer_green_field_position);
+                    log_msg("    multiboot2 fb->green_mask_size:      %d\n", tag_fb->framebuffer_green_mask_size);
+                    log_msg("    multiboot2 fb->blue_field_position:  %d\n", tag_fb->framebuffer_blue_field_position);
+                    log_msg("    multiboot2 fb->blue_mask_size:       %d\n", tag_fb->framebuffer_blue_mask_size);
 
                 }
                 break;
-            //case MULTIBOOT_TAG_TYPE_ACPI_OLD:
-            //    log_msg("MULTIBOOT_TAG_TYPE_ACPI_OLD\n");
-            //    break;
+            case MULTIBOOT_TAG_TYPE_ACPI_OLD:
+                log_msg("  MULTIBOOT_TAG_TYPE_ACPI_OLD\n");
+                struct multiboot_tag_acpiold* tag_acpiold=(struct multiboot_tag_acpiold*) tag;
+                log_msg("    RsdtAddress: 0x%lx\n", tag_acpiold->RsdtAddress);
+                break;
             default:
-                log_msg("UNKNOWN MULTIBOOT2 TAG type:%d\n", tag->type);
+                log_msg("  UNKNOWN MULTIBOOT2 TAG type:%d\n", tag->type);
         }
     }
 }
@@ -176,6 +189,7 @@ RESULT multiboot2_set_boot_vfb(struct fb_info* vfb) {
         }
         return OK;
     }
+    vfb->type = 0;
     return ERROR;
 }
 

@@ -6,13 +6,13 @@
 #include "string.h"
 
 extern zone_t  memoryzone[ZONECOUNT];
-extern pageframe_t *pageframemap;
+extern page_t *pageframemap;
 
 
-void _addToBuddyFreeList(pageframe_t* page,int idx, int order){
+void _addToBuddyFreeList(page_t* page,int idx, int order){
 
-    pageframe_t* p;
-    pageframe_t* buddypage=0;
+    page_t* p;
+    page_t* buddypage=0;
     struct list_head *pos;
 
     zone_t*  zone = page->zone;
@@ -51,7 +51,7 @@ void _addToBuddyFreeList(pageframe_t* page,int idx, int order){
 
     //find buddy in freelist.
     list_for_each(pos, &(freeArea[order].freelist)){
-        p = list_entry(pos, pageframe_t, pagelist);
+        p = list_entry(pos, page_t, pagelist);
         //int tidx= __page2idx(p);
         int tidx= PAGE2PFN(p);
         MMLOG3("MMLOG3 Test idx=%d  for page 0x%x  \n",tidx,p);
@@ -88,8 +88,8 @@ void _addToBuddyFreeList(pageframe_t* page,int idx, int order){
 int _findFreePageInBuddy(zone_t* zone, int order){
     //TODO
 
-    pageframe_t* p=(pageframe_t*)NULL;
-    pageframe_t* bp=(pageframe_t*)NULL;
+    page_t* p=(page_t*)NULL;
+    page_t* bp=(page_t*)NULL;
 
     if(order>ALLOCBUDDY_MAXORDER){
         //out of memory
@@ -109,7 +109,7 @@ int _findFreePageInBuddy(zone_t* zone, int order){
         p=0;
         goto searchdone;
     }
-    p = list_entry(freeArea[order].freelist.next, pageframe_t, pagelist);
+    p = list_entry(freeArea[order].freelist.next, page_t, pagelist);
 
     searchdone:
     if(p!=NULL){
@@ -151,7 +151,7 @@ int _findFreePageInBuddy(zone_t* zone, int order){
 }
 
 
-void pageframe_init(pageframe_t *frame) {
+void page_init(page_t *frame) {
     frame->order = 0;       // 1 frame
     frame->usecount = 444;  //not set
     frame->zone = 0;        //not set
@@ -160,7 +160,7 @@ void pageframe_init(pageframe_t *frame) {
 }
 
 
-void pageframe_debugprint_free(void){
+void page_debugprint_free(void){
     struct list_head *pos;
     log_msg("******************************************\n");
 
@@ -171,6 +171,7 @@ void pageframe_debugprint_free(void){
             list_for_each(pos, &(memoryzone[zi].free_area[i].freelist)){
                 free++;
             }
+            if (zi==ZONENORMAL || zi==ZONEDMA16 || zi==ZONEHIGH)
             log_msg("***  Zone(%s) Order %d free=%d\n",memoryzone[zi].name,i,free);
         }
     }
@@ -179,28 +180,12 @@ void pageframe_debugprint_free(void){
     log_msg("******************************************\n");
 }
 
-/// free page in upperspace (kernelspace)
-void pageframe_free_page_pfn(int pfn)
-{
-    pageframe_t* page = &pageframemap[pfn];
-    int order = page->order;
-    zone_t*  zone = page->zone;
-    MMLOG("Free page idx:%d  at mem:0x%lx order=%d zone=%s\n",pfn,page,order,zone->name);
-    page->usecount--;
-    if(page->usecount==0){
-        //memmap[p].flags=MMFLG_NORMAL;
-        //page->usage="FREE";
-        _addToBuddyFreeList(page,pfn,order);
-    }else{
-        PANIC("Try to free page with count > 0, this might not be a problem, but want to try to trap it for now.... :-) ");
-    }
-}
 
 
 //void* _alloc_pages_byorder(uint32_t flags,char* usage,int order)
-pageframe_t* _alloc_pages_byorder(uint32_t flags,int order)
+page_t* _alloc_pages_byorder(uint32_t flags,int order)
 {
-    pageframe_t* p=0;
+    page_t* p=0;
     zone_t* zone = &memoryzone[ZONENORMAL];
     if(flags & GFP_DMA16){
         //free_area_t* freeArea = memoryzone[ZONEDMA16].free_area;
@@ -229,21 +214,47 @@ pageframe_t* _alloc_pages_byorder(uint32_t flags,int order)
     //return kva;
 }
 
+/// free page in upperspace (kernelspace)
+void page_free_page_pfn(int pfn)
+{
+    page_t* page = &pageframemap[pfn];
+    int order = page->order;
+    //zone_t*  zone = page->zone;
+    //MMLOG("Free page idx:%d  at mem:0x%lx order=%d zone=%s\n",pfn,page,order,zone->name);
+    page->usecount--;
+    if(page->usecount==0){
+        //memmap[p].flags=MMFLG_NORMAL;
+        //page->usage="FREE";
+        _addToBuddyFreeList(page,pfn,order);
+    }else{
+        PANIC("Try to free page with count > 0, this might not be a problem, but want to try to trap it for now.... :-) ");
+    }
+}
+
+
 // Returns pointer to free page in upperspace (kernelspace)
 //void* alloc_page(uint32_t flags,char* usage)
-pageframe_t* pageframe_alloc_page(uint32_t flags)
+page_t* page_alloc_page(uint32_t flags)
 {
-    pageframe_t* p = _alloc_pages_byorder(flags,0);
+    page_t* p = _alloc_pages_byorder(flags,0);
     MMLOG3("MMLOG3 Got page %#x from zone %s \n",p,p->zone->name);
     void* newmem = (void*) PAGE2VIRT(p);
     memset(newmem, 0, PAGESIZE);
     return p;
 }
 
-pageframe_t* pageframe_alloc_pages(uint32_t flags, unsigned int order){
-    pageframe_t* p = _alloc_pages_byorder(flags,order);
+page_t* page_alloc_pages(uint32_t flags, unsigned int order){
+    page_t* p = _alloc_pages_byorder(flags,order);
     MMLOG3("MMLOG3 Got pages %#x from zone %s \n",p,p->zone->name);
     void* newmem = (void*) PAGE2VIRT(p);
     memset(newmem, 0, PAGESIZE<<order);
     return p;
+}
+
+void* page_alloc_pages_virt(uint32_t flags, unsigned int order){
+    page_t* p = _alloc_pages_byorder(flags,order);
+    MMLOG3("MMLOG3 Got pages %#x from zone %s \n",p,p->zone->name);
+    void* newmem = (void*) PAGE2VIRT(p);
+    memset(newmem, 0, PAGESIZE<<order);
+    return (void*) PAGE2VIRT(p);
 }

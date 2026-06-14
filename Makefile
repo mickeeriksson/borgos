@@ -52,7 +52,7 @@ run-pcq35-dbg-image:
 #	qemu-system-x86_64 -M q35,smm=off  -smp 4 -m 32m -net none  -serial null -serial stdio -drive format=raw,file=i386hd.img  \
 #-vga none  -device cirrus-vga
 
-	qemu-system-x86_64 -M q35 -smp 4 -m 16m -net none  -serial stdio -drive format=raw,file=i386hd.img -vga none -device cirrus-vga \
+	qemu-system-x86_64 -M q35 -smp 4 -m 64m -net none  -serial stdio -drive format=raw,file=i386hd.img -vga none -device cirrus-vga \
 -no-reboot -no-shutdown -S -gdb tcp::1234 #-singlestep #-S -gdb tcp::1234 -D ./qlog.txt
 
 

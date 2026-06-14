@@ -19,6 +19,7 @@ void cpu_init_cpustate(int cpun){
     //cpu[cpun].currentproc=0;
     //cpu[cpun].ticks=0;
     cpu[cpun].status=CPU_STATUS_HALTED;
+    cpu[cpun].ticks_in_1ms=0;
 }
 
 

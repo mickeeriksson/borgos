@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include "cpu/cpu_cpu.h"
+
 #include "types.h"
 //#include "proc.h"
 
@@ -27,17 +28,20 @@ typedef struct cpustate {
     int intenable;              // Were interrupts enabled before pushcli?
 //    int preemptenabled;            //should current process be preempted on next entry to userspace?
     int preemptflag;               //should current process be preempted on next entry to userspace?
-//
+
+    size_t ticks_in_1ms;
+    //
 //    //void *tls[2];
 //    proc_t *currentproc;
 //    proc_t *idleproc;               //idleproc for this cpu.
 //    reg_t ticks;                 //increments by local timer
     struct arch_cpu_info archcpu;
 
-//    adr_t stacktop;                 //top of stack
-//    adr_t stacksize;                //size of stack (in bytes)
+    adr_t stackadr;                 //bottom of stack, never to be passed below
+    adr_t stacksize;                //size of stack (in bytes)
 } cpu_t;
 
+#include "cpu/cpu_getcpu.h"
 
 //extern cpu_t cpu[NCPU];
 extern cpu_t cpu[];
