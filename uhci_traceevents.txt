@@ -1,0 +1,11 @@
+usb_uhci_*
+-usb_uhci_qh_load
+-usb_uhci_td_load
+-usb_uhci_td_nextqh
+-usb_uhci_frame_start
+-usb_uhci_mmio_readw
+-usb_uhci_mmio_writew
+-usb_uhci_packet_add
+-usb_uhci_packet_del
+-usb_uhci_queue_del
+-usb_uhci_queue_add

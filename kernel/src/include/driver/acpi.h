@@ -92,6 +92,21 @@ typedef struct MADT {
     //struct MADT_entry entries[];
 } __attribute__ ((packed)) MADT_t;
 
+typedef struct MCFG_entry {
+    uint64_t base;
+    uint16_t pci_segment_group;
+    uint8_t bus_number_start;
+    uint8_t bus_number_end;
+    uint32_t reserved;
+} __attribute__ ((packed)) MCFG_entry_t;
+
+
+typedef struct MCFG {
+    SDT_t header;
+    uint8_t reserved[8];
+} __attribute__ ((packed)) MCFG_t;
+
+extern void acpi_map_acpi_mem(void);
 extern void acpi_debugprint_entries(void);
 extern SDT_t* acpi_find(char* signature);
 

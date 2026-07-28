@@ -9,6 +9,12 @@ extern pgtblrecord_t* pagetable_walk_getlvl1table(pgtblrecord_t* lvl4table, adr_
 
 void* kernelpagetable;
 
+
+#define MMU_PTE_PWT  (1<<3)  //PCD bit,
+#define MMU_PTE_PCD  (1<<4)  //PCD bit,
+
+
+
 void mmu_asm_set_cr3(uint64_t cr3_val) {
     log_msg("Setting CR3 to 0x%lx\n", cr3_val);
     __asm__ __volatile__(
@@ -55,7 +61,7 @@ void mmu_map_page(void* pagetable,adr_t paddr,adr_t vaddr,uint64_t flags) {
     uint64_t createflags = 0x23; //PRESENT, WRITABLE, ACCESSED
 
     if (flags & MMU_DEVICE) {
-        pteflags |= MMU_PTE_PCD; //set PCD bit, disable caching
+        pteflags |= MMU_PTE_PCD | MMU_PTE_PWT; //set PCD bit, disable caching
     }
 
     //log_msg("\n Map PAGE addr 0x%lx\n", vaddr);
@@ -69,6 +75,11 @@ void mmu_map_page(void* pagetable,adr_t paddr,adr_t vaddr,uint64_t flags) {
     //log_msg("Entry at 0x%lx after map_page = 0x%lx\n", entry, *((uint64_t*)entry));
     //PANIC("TODO");
 }
+
+void mmu_map_kernelpage(adr_t paddr,adr_t vaddr,uint64_t flags) {
+    mmu_map_page(kernelpagetable,paddr, vaddr, flags) ;
+}
+
 
 void mmu_init_kernel_pagetable_mem(void) {
     //init low memory < 4gb.
@@ -117,6 +128,9 @@ void mmu_map_device_region(adr_t adrstart,adr_t adrend) {
     for (int pfn = pfnstart; pfn <= pfnend; pfn++) {
         //log_msg("MAP pfn = %d, identity paddr=0x%lx  vaddr=0x%lx\n",pfn,PFN2PHYS(pfn),PFN2PHYS(pfn));
         //mmu_map_page( kernelpagetable,PFN2PHYS(pfn),PFN2PHYS(pfn),0); // identitymapping
+        if (pfn==pfnstart || pfn==pfnend) {
+            log_msg("MAP Device pfn = %d, kernel paddr=0x%lx  vaddr=0x%lx (log only first & last pfn)\n",pfn,PFN2PHYS(pfn),PFN2VIRT(pfn));
+        }
         //log_msg("MAP Device pfn = %d, kernel paddr=0x%lx  vaddr=0x%lx\n",pfn,PFN2PHYS(pfn),PFN2VIRT(pfn));
         mmu_map_page( kernelpagetable,PFN2PHYS(pfn),PFN2VIRT(pfn),MMU_DEVICE); //
     }

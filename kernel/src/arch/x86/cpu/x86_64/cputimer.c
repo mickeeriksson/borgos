@@ -16,6 +16,7 @@ uint64_t cputimer_getticks64(void) {
     return ((uint64_t)high << 32) | low;
 }
 
+
 void cputimer_initcpu_hz(void) {
     log_msg("Init cputimer calc HZ\n");
 
@@ -25,7 +26,8 @@ void cputimer_initcpu_hz(void) {
         PANIC("CPU does not support RDTSC (TSC feature)");
     }
 
-    uint64_t endtick = vsystimer_millis() + 1000;
+    //uint64_t endtick = vsystimer_millis() + 200; //200ms sampletime
+    uint64_t endtick = vsystimer_millis() + 500; //200ms sampletime
 
     uint64_t start = cputimer_getticks64();
     // Hindrar BÅDE Clang och x86-processorn från att ändra ordningen
@@ -37,7 +39,8 @@ void cputimer_initcpu_hz(void) {
     __asm__ __volatile__("mfence" : : : "memory");
     uint64_t end = cputimer_getticks64();
 
-    uint64_t lcpuhz = (end - start)*1;
+    //uint64_t lcpuhz = (end - start)*5;   // 1000ms / 200ms sampletime = 5/s
+    uint64_t lcpuhz = (end - start)*2;   // 1000ms / 500ms sampletime = 2/s
     log_msg("LCPU hz: 0x%lx (%d)\n", lcpuhz,lcpuhz);
 
     cpu->archcpu.cputimer_hz = lcpuhz;

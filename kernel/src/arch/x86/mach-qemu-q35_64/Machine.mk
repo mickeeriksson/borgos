@@ -5,6 +5,7 @@ CPUDIR = $(ARCHDIR)/cpu/x86_64
 AS = clang
 #CC = x86_64-linux-gnu-gcc
 CC = clang
+C++ = clang++
 #LD = clang
 LD = ld.lld
 CPP = cpp
@@ -18,8 +19,10 @@ OBJCOPY = x86_64-linux-gnu-objcopy
 ##LDFLAGS = -melf_i386
 #LDFLAGS = -melf_x86_64
 
-CFLAGS = -target x86_64-none-elf -Wall -Werror  -Wno-unused-but-set-variable -Wno-division-by-zero -O0  -std=c11 -ffreestanding -nostdlib -mcmodel=large -static -mno-red-zone -mgeneral-regs-only $(DQEMU) -ggdb -c
+COMMONCFLAGS = -target x86_64-none-elf -Wall -Werror  -Wno-unused-but-set-variable -Wno-division-by-zero -O0 -ffreestanding -nostdlib -mcmodel=large -static -mno-red-zone -mgeneral-regs-only
+CFLAGS = $(COMMONCFLAGS) -std=c11 $(DQEMU) -ggdb -c
 #-Wno-unused-parameter -nostartfiles
+C++FLAGS = $(COMMONCFLAGS) -fno-exceptions -fno-rtti -ggdb -c
 
 ASFLAGS = -target x86_64-none-elf -static $(DQEMU) -ggdb -c
 

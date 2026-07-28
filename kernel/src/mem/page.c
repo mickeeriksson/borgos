@@ -122,7 +122,7 @@ int _findFreePageInBuddy(zone_t* zone, int order){
         int higherOrderIdx = _findFreePageInBuddy(zone,order+1);
         if(higherOrderIdx>0){
             p = &pageframemap[higherOrderIdx];
-            MMLOG("MMLOG Found higher order index page idx=%d  for page 0x%x  when searching for order = %d\n",higherOrderIdx,p,order);
+            MMLOG2("MMLOG2 Found higher order index page idx=%d  for page 0x%x  when searching for order = %d\n",higherOrderIdx,p,order);
             //split in half
             int size = 1<<order;
             int baseidx = higherOrderIdx;

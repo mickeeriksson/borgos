@@ -32,11 +32,18 @@ mb2hdr_start:
 
 //FB TAG
 .word 0x0005        //FB tag
-.word 0x0000        //FB falgs
-.long 20        //FB size
-.long 800        //FB width
-.long 600        //FB height
+.word 0x0000        //FB flags
+.long 20           //FB size
+.long 640          //FB width
+.long 480         //FB height
 .long 32          //FB depth
+
+// ; TAG: Console flags tag (Tvingar textläge/konsol)
+//.align 8
+//.word 4
+//.word 0                          // ; Tag typ 4 (Console flags)
+//.long 12                        //     ; Tag storlek
+//.long 0x03                       //    ; Bit 0+1 satt: Kräver EGA/VGA textläge + BIOS konsol
 
 
 .align 8

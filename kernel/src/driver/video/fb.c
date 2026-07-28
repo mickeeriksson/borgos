@@ -102,13 +102,20 @@ int fb_rgb_init_default_vga(struct fb_info *fbinfo) {
 }
 
 int fb_rgb_setpixel(struct fb_info *fbinfo, uint16_t row, uint16_t col, uint32_t rgb) {
-    uint8_t *pxlptr = (uint8_t*) fbinfo->fbaddr + row * fbinfo->fbpitch + col*fbinfo->fbbytespp;
-    uint8_t r = (rgb >> 16) & 0xFF;
-    uint8_t g = (rgb >> 8) & 0xFF;
-    uint8_t b = (rgb >> 0)  & 0xFF;
-    pxlptr[0] = b;
-    pxlptr[1] = g;
-    pxlptr[2] = r;
+    if (fbinfo->fbbytespp==1) {
+        uint8_t *pxlptr = (uint8_t*) fbinfo->fbaddr + row * fbinfo->fbpitch + col*fbinfo->fbbytespp;
+        uint8_t col = rgb & 0xFF;
+        pxlptr[0] = col;
+    }
+    if (fbinfo->fbbytespp==3 || fbinfo->fbbytespp==4) {
+        uint8_t *pxlptr = (uint8_t*) fbinfo->fbaddr + row * fbinfo->fbpitch + col*fbinfo->fbbytespp;
+        uint8_t r = (rgb >> 16) & 0xFF;
+        uint8_t g = (rgb >> 8) & 0xFF;
+        uint8_t b = (rgb >> 0)  & 0xFF;
+        pxlptr[0] = b;
+        pxlptr[1] = g;
+        pxlptr[2] = r;
+    }
     return 0;
 }
 
@@ -117,7 +124,6 @@ int fb_rgb_cls(struct fb_info *fbinfo){
     uint8_t* fbbuf = (uint8_t*) fbinfo->fbaddr;
     size_t copysize = (fbinfo->fbheight)*fbinfo->fbpitch;
     memset(fbbuf, CLEARBYTE,copysize);
-
     fbinfo->currow = 0;
     fbinfo->curcol = 0;
 

@@ -105,7 +105,7 @@ struct zone_slab zoneslabs[ZONECOUNT];
 SPINLOCK(slablock);
 
 void kmalloc_calc_sizes(void){
-    kprintf("Calc sizes in kmallac_slab\n");
+    //kprintf("Calc sizes in kmallac_slab\n");
 
     int grosssize=0;
     int pagenetsize=0;
@@ -225,7 +225,7 @@ void* kmalloc(size_t size, uint32_t flags) {
 
             if(block->flags & MEMBLOCK_FREE){
                 //free
-                MMLOG("found (1) free block at 0x%x  for size %d \n",block,(uint32_t)size);
+                MMLOG2("MMLOG2 found (1) free block at 0x%lx  for size %d \n",block,(uint32_t)size);
                 //log_msg("kmalloc found free block at 0x%x,flags=0x%x  for size=%d \n",block,block->flags,(uint32_t)size);
                 page->firstfree = block->bh.next;
                 //log_msg("kmalloc next free is now block at 0x%x \n",page->firstfree);
@@ -247,9 +247,9 @@ void* kmalloc(size_t size, uint32_t flags) {
                 //release(&slablock,"slab");
                 spinunlock(&slablock);
                 void *memptr = block+1;
-                MMLOG("found (2) free block at 0x%x for size %d returns ptr 0x%x \n",block,(size_t)size,(adr_t)memptr);
+                MMLOG2("MMLOG2 found (2) free block at 0x%lx for size %d returns ptr 0x%lx \n",block,(size_t)size,(adr_t)memptr);
                 //log_msg("kmalloc found free block at 0x%x for size %d returns ptr 0x%x , flags=0x%x , use=%s \n",block,(uint32_t)size,(uint32_t)memptr,block->flags,use);
-
+                MMLOG(">>>>kmalloc (KERNEL) return ptr to new mem at 0x%lx \n",memptr);
                 return memptr; /* Pointer arithmetic: increments past header */
 
             }else{
@@ -267,7 +267,7 @@ void* kmalloc(size_t size, uint32_t flags) {
         if (!page) {
             PANIC("Unable to get new page for malloc \n");
         }
-        MMLOG("Got new page %x to use for %d byte mallocs.... \n",page,sizes[order].size);
+        MMLOG2("MMLOG Got new page %x to use for %d byte mallocs.... \n",page,sizes[order].size);
         //log_msg("Got new page %x to use for %d byte mallocs.... \n",page,sizes[order].size);
         sizes[order].npages++;
         sizes[order].ntotal += sizes[order].nblocks;
@@ -309,11 +309,9 @@ void* kmalloc(size_t size, uint32_t flags) {
 void kfree(void* ptr)
 {
     struct size_descriptor *sizes;
-
-
-
     sizes = zoneslabs[ZONENORMAL].sizes;
 
+    MMLOG(">>>>kmalloc (KERNEL) kfree ptr at 0x%lx\n",ptr);
 
     //kprintf("free ptr at 0x%x  \n",ptr ) ;
     //log_msg("kfree free ptr at 0x%x  \n",ptr ) ;
@@ -376,6 +374,47 @@ void kfree(void* ptr)
     spinunlock(&slablock);
    // printf("free done! \n" ) ;
 }
+
+
+
+void* kmalloc_aligned(size_t size, size_t alignment,uint32_t flags) {
+    // alignment måste vara en potens av 2 (t.ex. 4, 8, 16, 4096...)
+    if (alignment == 0 || (alignment & (alignment - 1)) != 0) {
+        return NULL;
+    }
+
+    // Vi behöver plats för:
+    //  - själva datan (size)
+    //  - upp till (alignment - 1) extra bytes för att kunna skjuta adressen
+    //  - sizeof(void*) för att spara originalpekaren, så vi kan free() rätt block
+    size_t total_size = size + alignment - 1 + sizeof(void*);
+
+    void *raw = kmalloc(total_size,flags);
+    if (!raw) {
+        return NULL;
+    }
+
+    // Lämna plats för pekaren innan vi rundar upp
+    uintptr_t raw_addr = (uintptr_t)raw + sizeof(void*);
+
+    // Runda upp till närmaste multipel av alignment
+    uintptr_t aligned_addr = (raw_addr + alignment - 1) & ~(uintptr_t)(alignment - 1);
+
+    // Spara originalpekaren direkt före den justerade adressen
+    ((void **)aligned_addr)[-1] = raw;
+
+    log_msg("Allocated %d bytes (total=%d) aligened at %d raw=0x%lx aligened=0x%lx\n",size,total_size,alignment,raw,aligned_addr);
+
+    return (void *)aligned_addr;
+}
+
+void kfree_aligned(void *ptr) {
+    if (!ptr) return;
+    void *raw = ((void **)ptr)[-1];
+    kfree(raw);
+}
+
+
 
 void kmalloc_debug_walk(void){
     struct size_descriptor *sizes;

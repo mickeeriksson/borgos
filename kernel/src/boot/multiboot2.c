@@ -308,6 +308,9 @@ RESULT multiboot2_set_bootmem_map(struct bootmem_info* bootmem) {
                 case MULTIBOOT_MEMORY_AVAILABLE:
                     bootmem_memmapentry[i].type = BOOTMEMTYPE_FREE;
                     break;
+                case MULTIBOOT_MEMORY_RESERVED:
+                    bootmem_memmapentry[i].type = BOOTMEMTYPE_RESERVED;
+                    break;
                 default:
                     bootmem_memmapentry[i].type = BOOTMEMTYPE_UNKNOWN;
                     break;

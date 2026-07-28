@@ -41,6 +41,10 @@ irq\irqno:
         //.set irqnum,i-32
         //IRQ %(i-32),%i
         ISR_NOERRORCODE %i
+    .elseif i>=132 && i<=147
+        //.set irqnum,i-32
+        //IRQ %(i-32),%i
+        ISR_NOERRORCODE %i
     .else
     .endif
     .set i,i+1
@@ -61,6 +65,8 @@ isr_stub_table:
         stubentry %i
     .elseif i>=32 && i<=47
         stubentry %i
+    .elseif i>=132 && i<=147
+        stubentry %i
     .else
         .quad 0
     .endif
@@ -70,6 +76,10 @@ isr_stub_table:
 isr_common:
     //# 1. Spara CPU-register (Context Save)
     //pushq $42 //dummy
+
+    // 15 register * 8 = 120 bytes
+    // + felkod + isr (4byte var) = 128 bytes total
+    //128 % 16 = 0 (dvs tacken blir rätt alignad vid call isr_generic)
     pushq %rax
     pushq %rbx
     pushq %rcx

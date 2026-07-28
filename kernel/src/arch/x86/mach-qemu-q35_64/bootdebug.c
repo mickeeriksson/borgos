@@ -16,8 +16,19 @@ void bootdebug_printf (const char *format, ...) __attribute__ ((section (".text.
 void bootdebug_init() {
     io_outb(PORT + 1, 0x00);    // Disable all interrupts
     io_outb(PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-    io_outb(PORT + 0, 0x01);    // Set divisor to 3 (lo byte) 115200 baud
+
+    //115200
+    //io_outb(PORT + 0, 0x01);    // Set divisor to 3 (lo byte) 115200 baud
+    //io_outb(PORT + 1, 0x00);    //                  (hi byte)
+
+    //57600
+    io_outb(PORT + 0, 0x02);    // Set divisor to 0x0C (lo byte) 9600 baud
     io_outb(PORT + 1, 0x00);    //                  (hi byte)
+
+    //9600
+    //io_outb(PORT + 0, 0x0C);    // Set divisor to 0x0C (lo byte) 9600 baud
+    //io_outb(PORT + 1, 0x00);    //                  (hi byte)
+
     io_outb(PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
     io_outb(PORT + 2, 0xC7);    // Enable FIFO, clear them, with 14-byte threshold
     //outb(PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
@@ -27,9 +38,15 @@ void bootdebug_init() {
     io_outb(PORT,'B');
 }
 
+#define THRE       (1 << 5)
+#define TEMT       (1 << 6)
+
 static uint8_t bootdebug_is_transmit_empty(void) {
-    uint8_t val = io_inb(PORT + 5) & 0x20;
-    return val;
+    uint8_t thre = io_inb(PORT + 5) & THRE;
+    uint8_t temt = io_inb(PORT + 5) & TEMT;
+    if (thre>0 && temt > 0)
+        return 1;
+    return 0;
 }
 
 void bootdebug_putc(uint8_t c) {

@@ -59,11 +59,11 @@ static inline void panic(const char *message,const char *file, uint32_t line){
 #define	EBADF		 9	/* Bad file number */
 //#define	ECHILD		10	/* No child processes */
 //#define	EAGAIN		11	/* Try again */
-//#define	ENOMEM		12	/* Out of memory */
+#define	ENOMEM		12	/* Out of memory */
 #define	EACCES		13	/* Permission denied */
 //#define	EFAULT		14	/* Bad address */
 //#define	ENOTBLK		15	/* Block device required */
-//#define	EBUSY		16	/* Device or resource busy */
+#define	EBUSY		16	/* Device or resource busy */
 //#define	EEXIST		17	/* File exists */
 //#define	EXDEV		18	/* Cross-device link */
 //#define	ENODEV		19	/* No such device */
@@ -177,6 +177,10 @@ static inline void panic(const char *message,const char *file, uint32_t line){
 //#define ERESTARTNOHAND	514	/* restart if no handler.. */
 //#define ENOIOCTLCMD	515	/* No ioctl command */
 
+
+//Error 1000-1099 reserved for USB STACK
+//returned as type USBRESULT
+// see driver/usb/usb.h for definition,
 
 
 #endif

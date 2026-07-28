@@ -65,7 +65,9 @@ extern void apic_lapic_timer_init(uint8_t irqno);
 extern void apic_lapic_timer_start(uint8_t irqno, uint32_t intervallmillis);
 
 extern void pic8259_init_disabled(void);
-
+extern void pci_config_init(void);
+extern void pci_config_add_region(uint64_t base_address, uint16_t pci_segment_group, uint8_t bus_number_start, uint8_t bus_number_end) ;
+extern void pci_config_debugprint_regions(void);
 
 struct fb_info boot_vfb;
 struct fb_ops boot_vfb_ops;
@@ -80,7 +82,11 @@ int ksimpleputchar(int c) {
 }
 
 int klogchar(int c) {
+    //uint64_t t;
     bootdebug_putc(c);
+    //for (int i=0;i<1000;i++) {
+    //    t = i*2;
+    //}
     return 0;
 }
 
@@ -210,6 +216,22 @@ void hal_init_bootvfb_high() {
             fb_rgb_init_default_vga(&boot_vfb);
             kprintf("INIT kkonsole as VFB_RGB at fbaddr = 0x%lx\n", boot_vfb.fbaddr);
         }
+        if (boot_vfb.type == VFB_TEXT) {
+            adr_t fbaddr = boot_vfb.fbaddr;
+            size_t fbsize = boot_vfb.fbpitch*boot_vfb.fbheight;
+            log_msg("VFB Map address: 0x%lx - 0x%lx\n", fbaddr, fbaddr+fbsize);
+
+            int pfnstart = PHYS2PFN(fbaddr);
+            int pfnend = PHYS2PFN(fbaddr+fbsize);
+            for (int p=pfnstart; p<=pfnend; p++) {
+                //log_msg("MAP VFB device page %d at phys 0x%lx\n",p,PFN2PHYS(p));
+                mmu_map_page( kernelpagetable,PFN2PHYS(p),PFN2VIRT(p),MMU_DEVICE);
+            }
+            boot_vfb.fbops = &boot_vfb_ops;
+            boot_vfb.fbaddr = P2V(fbaddr);
+            fb_text_init_default_ega(&boot_vfb);
+            kprintf("INIT kkonsole as VFB_RGB at fbaddr = 0x%lx\n", boot_vfb.fbaddr);
+        }
     }
 
 /*
@@ -251,7 +273,7 @@ void hal_init_mem(void) {
     */
     mmu_init_kernel_pagetable();
     log_msg("Switch to new kernelpagetable CR3 DONE!\n");
-    kprintf("Switch to new kernelpagetable CR3 DONE!\n");
+    //kprintf("Switch to new kernelpagetable CR3 DONE!\n");
 
     //Map BIOS
     log_msg("MAP BIOS 0x80000-0xFFFFF as DEVICE MEM\n");
@@ -427,6 +449,7 @@ void hal_bp_init(void) {
 
     //Only done for BP.
     log_msg("\nPARSE ACPI\n");
+    acpi_map_acpi_mem();
     acpi_debugprint_entries();
 
     hal_init_hpet();
@@ -500,6 +523,15 @@ void hal_ap_init(void) {
 void hal_start(void) {
     //enter here from boot.s
     bootdebug_init();
+
+    for (int i=0;i<80;i++) {
+        bootdebug_putc(' ');
+    }
+    bootdebug_putc('\n');
+    for (int i=0;i<80;i++) {
+        bootdebug_putc('M');
+    }
+
     bootdebug_printf("\n-------------- HAL (hal_init_early): ----------------\n");
 
     log_init(klogchar);
@@ -555,4 +587,28 @@ void hal_start(void) {
 
     hal_bp_restack(); //reset stack and go to kmain_bp_enter
     //Never to return here.
+}
+
+
+void hal_pci_parsepcisegments_from_mcfg(void) {
+    // INIT MCFG
+    MCFG_t* mcfg = (MCFG_t*) acpi_find("MCFG");
+    log_msg("got mcfg at 0x%lx\n",mcfg);
+
+    adr_t entriesstart = (adr_t) mcfg + sizeof(MCFG_t);
+    uint64_t entriessize = mcfg->header.length - sizeof(MCFG_t);
+    void* entryptr = (void*) entriesstart;
+    while (entryptr < (void*) (entriesstart + entriessize)) {
+        MCFG_entry_t* entry = (MCFG_entry_t*) entryptr;
+        log_msg("mcfg entry at 0x%lx\n",entry);
+        pci_config_add_region(entry->base,entry->pci_segment_group,entry->bus_number_start,entry->bus_number_end);
+        entryptr = entryptr + sizeof(MCFG_entry_t);
+    }
+}
+
+void hal_pci_init(void) {
+    pci_config_init();
+    hal_pci_parsepcisegments_from_mcfg();
+    pci_config_debugprint_regions();
+    //ANIC("TODO hal_pci_init!");
 }

@@ -1,0 +1,67 @@
+apt-get install tftpd-hpa
+
+nano /etc/default/tftpd-hpa
+
+sudo systemctl restart tftpd-hpa
+sudo systemctl enable tftpd-hpa
+
+
+--------------------
+
+
+apt install isc-dhcp-server
+
+nano /etc/default/isc-dhcp-server
+
+INTERFACESv4="enp88s0"
+INTERFACESv6=""
+
+
+
+
+
+enp88s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 10.10.10.50  netmask 255.255.255.0  broadcast 10.10.10.255
+        ether 1c:69:7a:db:e3:e8  txqueuelen 1000  (Ethernet)
+        RX packets 4100  bytes 3493919 (3.4 MB)
+        RX errors 0  dropped 1  overruns 0  frame 0
+        TX packets 1894  bytes 267754 (267.7 KB)
+        TX errors 0  dropped 6 overruns 0  carrier 0  collisions 0
+        device memory 0x84400000-844fffff
+
+
+sudo systemctl restart isc-dhcp-server
+sudo systemctl enable isc-dhcp-server
+
+
+
+#skapa grup
+grub-mkimage -O x86_64-efi -o /srv/tftp/grubx64.efi \
+  -p /boot/grub \
+  efinet tftp multiboot multiboot2 configfile normal linux all_video efi_gop gfxterm
+
+
+
+  grub-mkimage -O x86_64-efi -o /srv/tftp/grubx64.efi \
+    -p /boot/grub \
+    efinet tftp multiboot multiboot2 configfile normal linux \
+    all_video efi_gop gfxterm videoinfo sleep read \
+    ls cat echo test true \
+    reboot halt \
+    help search search_fs_file search_fs_uuid search_label \
+    part_gpt part_msdos fat \
+    net tftp
+
+
+    sudo mkdir -p /srv/tftp/boot/grub/x86_64-efi
+    sudo cp /usr/lib/grub/x86_64-efi/*.mod /srv/tftp/boot/grub/x86_64-efi/
+
+
+
+
+
+
+ journalctl -u tftpd-hpa -f
+
+ screen /dev/ttyS0 57600
+

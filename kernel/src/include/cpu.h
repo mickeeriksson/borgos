@@ -29,7 +29,7 @@ typedef struct cpustate {
 //    int preemptenabled;            //should current process be preempted on next entry to userspace?
     int preemptflag;               //should current process be preempted on next entry to userspace?
 
-    size_t ticks_in_1ms;
+    size_t ticks_in_1ms;            // apic lapic timer ticks in 1ms
     //
 //    //void *tls[2];
 //    proc_t *currentproc;

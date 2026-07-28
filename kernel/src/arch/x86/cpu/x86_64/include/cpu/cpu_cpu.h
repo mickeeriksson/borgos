@@ -13,7 +13,7 @@ struct arch_cpu_info {
     uint8_t     xapic_logicalid;            // 8 bit  xAPIC ID
     uint32_t    x2apic_logicalid;           // 32 bit x2APIC ID
 
-    uint64_t    cputimer_hz;
+    uint64_t    cputimer_hz;                //used by delay in como with rdtsc (cpu local timer)
     
     uint32_t    cpuid_maxbasicleafs;
     char cpuid_vendorstring[32];

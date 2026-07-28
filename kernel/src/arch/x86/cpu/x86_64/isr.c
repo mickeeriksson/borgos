@@ -3,6 +3,7 @@
 #include "config.h"
 #include "irq.h"
 #include "cpu.h"
+#include "bits.h"
 
 uint64_t irqcounter = 0;
 
@@ -42,8 +43,34 @@ void isr_pagefault_handler(trapframe_t *tframe) {
     PANIC("PAGEFAULT, UNHANDLED!");
 }
 
+void isr_gpf_handler(trapframe_t *tframe) {
+    log_msg("PAGEFAULT trapframe=%#lx vectorno=%d, irqno=%#lx, ip=%#lx\n"
+            ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
+
+    log_msg("GPF");
+    log_msg("Before PANIC");
+
+    PANIC("PAGEFAULT, UNHANDLED!");
+}
+
+
+void isr_division_handler(trapframe_t *tframe) {
+    log_msg("PAGEFAULT trapframe=%#lx vectorno=%d, irqno=%#lx, ip=%#lx\n"
+            ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
+
+    log_msg("DIVISION");
+    log_msg("Before PANIC");
+
+    PANIC("DIVISION BY ZERO, UNHANDLED!");
+}
+
+
 void isr_generic(trapframe_t *tframe) {
     irqcounter++;
+
+    if ( ((uintptr_t)tframe & 0xF) != 0) {
+        PANIC("ISR CALLED WITH invalid alignement on stack. Should be aligned to 16 bytes\n");
+    }
 
     cpu_t* cpu = CURRENTCPU;
     int irqOn = cpu_read_irq();
@@ -53,9 +80,14 @@ void isr_generic(trapframe_t *tframe) {
     log_msg("TRAP trapframe=%#lx vectorno=%d, irqno=%#lx, ip=%#lx\n"
             ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
 
-    if (tframe->isrno==14) {
+    if (tframe->isrno==0) {
+        isr_division_handler(tframe);
+    }else if (tframe->isrno==14) {
         //temp to get pagefault until snyggifiering
         isr_pagefault_handler(tframe);
+    }else if (tframe->isrno==13) {
+            //temp to get pagefault until snyggifiering
+            isr_gpf_handler(tframe);
     }else if (tframe->isrno==0xFF) {
         //Spurious handler
         //DO NOTHING

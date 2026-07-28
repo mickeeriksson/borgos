@@ -5,7 +5,8 @@
 
 enum enumfbtype {
     VFB_TEXT = 1,
-    VFB_RGB = 2
+    VFB_RGB = 2,
+    VFB_INDEXED = 3,
 };
 
 struct fb_info;
@@ -37,6 +38,7 @@ struct fb_info {
     uint32_t textrows;
     uint32_t textcols;
 
+    uint8_t fontheight;
 
 
     struct fb_ops *fbops;

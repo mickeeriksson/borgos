@@ -18,4 +18,12 @@ typedef int BOOL;
 #define TRUE 1
 #define FALSE 0
 
+/** Type-independent macro to calculate the minimum of 2 values.  Stolen from XINU  */
+#define MIN(a, b) ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); (_a < _b) ? _a : _b; })
+
+/** Type-independent macro to calculate the maximum of 2 values.  Stolen from XINU  */
+#define MAX(a, b) ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); (_a > _b) ? _a : _b; })
+
+
+
 #endif

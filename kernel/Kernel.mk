@@ -19,25 +19,48 @@ KERNEL_CSRC := $(KERNEL_CSRC) \
 $(wildcard $(SRCDIR)/boot/*.c) \
 $(wildcard $(SRCDIR)/kcore/*.c) \
 $(wildcard $(SRCDIR)/driver/*.c) \
+$(wildcard $(SRCDIR)/driver/pci/*.c) \
+$(wildcard $(SRCDIR)/driver/usb/*.c) \
+$(wildcard $(SRCDIR)/driver/usb/hid/*.c) \
 $(wildcard $(SRCDIR)/mem/*.c) \
 $(wildcard $(SRCDIR)/driver/video/*.c)
 
+KERNEL_CPPSRC :=  \
+$(wildcard $(SRCDIR)/boot/*.cpp) \
+$(wildcard $(SRCDIR)/kcore/*.cpp) \
+$(wildcard $(SRCDIR)/driver/*.cpp) \
+$(wildcard $(SRCDIR)/driver/pci/*.cpp) \
+$(wildcard $(SRCDIR)/mem/*.cpp) \
+$(wildcard $(SRCDIR)/driver/video/*.cpp)
+
+
 LIBCDIR = ./../libc/src
+LIBCPPDIR = ./../libcpp/src
+
 
 LIBK_CSRC := $(LIBK_CSRC) \
 $(wildcard $(LIBCDIR)/stdio/*.c) \
 $(wildcard $(LIBCDIR)/string/*.c)
 
+LIBCPP_CPPSRC := $(LIBCPP_CPPSRC) \
+$(wildcard $(LIBCPPDIR)/std/*.cpp)
+
+
 KERNEL_OBJS := $(KERNEL_ASMSRC:$(SRCDIR)/%.S=$(OBJDIR)/%.o) \
                $(KERNEL_CSRC:$(SRCDIR)/%.c=$(OBJDIR)/%.o) \
-               $(LIBK_CSRC:$(LIBCDIR)/%.c=$(OBJDIR)/%.o)
+               $(KERNEL_CPPSRC:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o) \
+               $(LIBK_CSRC:$(LIBCDIR)/%.c=$(OBJDIR)/%.o) \
+               $(LIBCPP_CPPSRC:$(LIBCPPDIR)/%.cpp=$(OBJDIR)/%.o)
+
 
 #INCLUDES=-I$(MACHDIR)/include/ -I$(ARCHDIR)/include/ -I$(CPUDIR)/include/ -I./include -I$(LIBCDIR)/include/
-INCLUDES=-I$(MACHDIR)/include/ -I$(ARCHDIR)/include/ -I$(CPUDIR)/include/ -I$(SRCDIR)/include -I$(LIBCDIR)/include/
+INCLUDES=-I$(MACHDIR)/include/ -I$(ARCHDIR)/include/ -I$(CPUDIR)/include/ -I$(SRCDIR)/include -I$(LIBCDIR)/include/ -I$(LIBCPPDIR)/include/
 
 #DUMMY1:=$(shell mkdir --parents $(KERNEL_OBJS)/..)
 #OBJDIRS = $(subst /,/,$(sort $(dir $(KERNEL_OBJS))))
 OBJDIRS = $(subst /,/,$(sort $(dir $(KERNEL_OBJS))))
+
+
 
 .PHONY: clean kernel-elf kernel-lib
 
@@ -47,6 +70,9 @@ echo:
 	@echo "(In Kernel.mk) KERNEL_CSRC:" $(KERNEL_CSRC)
 	@echo "(In Kernel.mk) LIBK_CSRC:" $(LIBK_CSRC)
 	@echo "(In Kernel.mk) KERNEL_OBJS:" $(KERNEL_OBJS)
+	@echo "(In Kernel.mk) LIBCPP_CPPSRC:" $(LIBCPP_CPPSRC)
+	@echo "(In Kernel.mk) OBJDIRS:" $(OBJDIRS)
+
 
 deepclean:
 	@echo "DEEPCLEAN!"
@@ -74,8 +100,18 @@ $(OBJDIR)/%.o: $(LIBCDIR)/%.c
 	$(CC) $(INCLUDES) $(CFLAGS)   $< -o $@
 	@echo "" #make space between compiles....
 
+#LIBCPP FILES
+$(OBJDIR)/%.o: $(LIBCPPDIR)/%.cpp
+	$(C++) $(INCLUDES) $(C++FLAGS)   $< -o $@
+	@echo "" #make space between compiles....
+
+
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(INCLUDES) $(CFLAGS)   $< -o $@
+	@echo "" #make space between compiles....
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
+	$(C++) $(INCLUDES) $(C++FLAGS)   $< -o $@
 	@echo "" #make space between compiles....
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.S

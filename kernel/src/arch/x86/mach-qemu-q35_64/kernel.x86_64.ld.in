@@ -53,6 +53,8 @@ SECTIONS {
     .rodata ALIGN (4K) : AT (ADDR (.rodata) - _LD_RELOCATE_BASE){
       *(.rodata)
       *(.rodata.*)
+      *(.driver_annotation)
+      *(.usbdriver_annotation)
     }
 //    . = ALIGN(4K);
     .data ALIGN (4K) : AT (ADDR (.data) - _LD_RELOCATE_BASE){

@@ -5,6 +5,11 @@
 #include "types.h"
 #include "list.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 extern size_t PFN_OFFSET ;   // Always 0 on PC platforms.
 extern size_t PFN_MIN;      //first pfn, usually 0,
 extern size_t PFN_MAX;        //last pfn in system.
@@ -15,8 +20,8 @@ extern size_t PFN_DMA32_MAX;
 extern size_t PFN_NORMAL_MIN;     //min_low_pfn in linux, marks the first pfn of normal memory
 extern size_t PFN_NORMAL_MAX;
 
-#define MMLOG(...)    log_msg(__VA_ARGS__)
-//#define MMLOG(...)
+//#define MMLOG(...)    log_msg(__VA_ARGS__)
+#define MMLOG(...)
 //#define MMLOG2(...)    log_msg(__VA_ARGS__)
 #define MMLOG2(...)
 //#define MMLOG3(...)    log_msg(__VA_ARGS__)
@@ -24,11 +29,11 @@ extern size_t PFN_NORMAL_MAX;
 
 
 #ifdef NOMMU
-  #define P2V(p) ((adr_t)(p))
-  #define V2P(v) ((adr_t)(v))
+#define P2V(p) ((adr_t)(p))
+#define V2P(v) ((adr_t)(v))
 #else
-  #define P2V(p) ((adr_t)(p) + (KERNEL_UPPER_HALF_OFFSET))
-  #define V2P(v) ((adr_t)(v) - (KERNEL_UPPER_HALF_OFFSET))
+#define P2V(p) ((adr_t)(p) + (KERNEL_UPPER_HALF_OFFSET))
+#define V2P(v) ((adr_t)(v) - (KERNEL_UPPER_HALF_OFFSET))
 #endif
 
 #define PAGESIZE   (1UL << PAGESHIFT)
@@ -79,9 +84,6 @@ typedef struct free_area_struct {
 #define MMU_NORMAL  0x00
 #define MMU_DEVICE  0x01
 
-#define MMU_PTE_PCD  (1<<4)  //PCD bit,
-
-
 typedef struct zone_struct {
     //    spinlock_t        lock;
     //    unsigned long     free_pages;
@@ -123,9 +125,19 @@ extern page_t* page_alloc_pages(uint32_t flags, unsigned int order);
 extern void* page_alloc_pages_virt(uint32_t flags, unsigned int order);
 
 extern void mmu_map_page(void* pagetable,adr_t paddr,adr_t vaddr,uint64_t flags) ;
+extern void mmu_map_kernelpage(adr_t paddr,adr_t vaddr,uint64_t flags);
+extern void mmu_map_device_region(adr_t adrstart,adr_t adrend);
 
 extern void* kmalloc(size_t size, uint32_t flags) ;
 extern void kfree(void* ptr);
 extern void kmalloc_debug_walk(void);
+
+extern void* kmalloc_aligned(size_t size, size_t alignment,uint32_t flags);
+extern void kfree_aligned(void *ptr);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif

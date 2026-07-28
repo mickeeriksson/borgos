@@ -158,24 +158,28 @@ void phys_pagemap_init(size_t pfn_offset, size_t pfn_count) {
         adr_t end = mapentry->addr+mapentry->size-1;
 
         if (mapentry->type == BOOTMEMTYPE_FREE)  {
-            for (adr_t p=addr;p<end;p+=PAGESIZE) {
-                int pfn = PHYS2PFN(p);
-                if (pfn<=PFN_MAX) {
-                    //log_msg("Mark pageframe %d as free\n",pfnidx);
-                    if (pfn>=pfn_kernel_min && pfn<=pfn_kernel_max) {
-                        //kernel image
+            if (PHYS2PFN(addr) < MAXPGD_PFN) {
+                for (adr_t p=addr;p<end;p+=PAGESIZE) {
+                    int pfn = PHYS2PFN(p);
+                    if (pfn<=PFN_MAX) {
+                        //log_msg("Mark pageframe %d as free\n",pfnidx);
+                        if (pfn>=pfn_kernel_min && pfn<=pfn_kernel_max) {
+                            //kernel image
+                        }
+                        else if (pfn>=pfn_bootmem_min && pfn<=pfn_bootmem_max) {
+                            //bootmem allocator
+                        }
+                        else {
+                            pageframemap[pfn].usecount = 0; //free
+                            pageframemap[pfn].memsegment = mapentryidx;
+                            freepages++;
+                        }
+                    }else {
+                        //skip
                     }
-                    else if (pfn>=pfn_bootmem_min && pfn<=pfn_bootmem_max) {
-                        //bootmem allocator
-                    }
-                    else {
-                        pageframemap[pfn].usecount = 0; //free
-                        pageframemap[pfn].memsegment = mapentryidx;
-                        freepages++;
-                    }
-                }else {
-                    //skip
                 }
+            }else {
+                log_msg("Skip memory entry 0x%lx-0x%lx size=%dMb",addr,end, (end-addr)/(1024*1024));
             }
         }
         mapentryidx++;
@@ -201,7 +205,7 @@ void phys_pagemap_init(size_t pfn_offset, size_t pfn_count) {
                         pageframemap[pfn].memsegment = mapentryidx;
                     }
                     else if (pfn>=pfn_bootmem_min && pfn<=pfn_bootmem_max) {
-                        log_msg("A");
+                        //log_msg("A");
                         bootmempages++;
                         pageframemap[pfn].usecount = 998; //never release
                         pageframemap[pfn].memsegment = mapentryidx;
@@ -302,6 +306,7 @@ void phys_freepages_high(void) {
     int p = MAXBOOTPGD_PFN+1;
     int freed_pages =0;
     while (p<=PFN_MAX) {
+
         page_t *page = &pageframemap[p];
         if ((page->order < 1) && (page->usecount < 1)) {
             int freeorder = _testordertofree(p,PFN_MAX);  //set PFN_MAX when init high mem
@@ -431,6 +436,14 @@ void phys_init(void) {
 
     //PFN_MAX = (largestnormal->addr+largestnormal->size-1) / PAGESIZE;
     PFN_MAX = top_high / PAGESIZE;
+    log_msg("PFN_MAX=%d\nMAXPGD_PFN=%d\n",PFN_MAX,MAXPGD_PFN);
+    log_msg("MICKE\n",PFN_MAX,MAXPGD_PFN);
+    if (PFN_MAX > MAXPGD_PFN) {
+        log_msg("PFN_MAX (%d) > MAXPGD_PFN (%d), set PFN_MAX=MAXPGD_PFN \n", PFN_MAX, MAXPGD_PFN);
+        PFN_MAX = MAXPGD_PFN;
+    }
+
+
     PFN_NORMAL_MIN = contig_low / PAGESIZE;
     PFN_NORMAL_MAX = contig_high / PAGESIZE;
     log_msg("PFN_MIN=%d\nPFN_MAX=%d\nPFN_NORMAL_MIN=%d\nPFN_NORMAL_MAX=%d\n",PFN_MIN,PFN_MAX,PFN_NORMAL_MIN,PFN_NORMAL_MAX);

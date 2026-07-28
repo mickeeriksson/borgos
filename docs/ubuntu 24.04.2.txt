@@ -52,3 +52,17 @@ apt install lld
 
 #install qemu. (10)
 #separate doc
+
+
+//GRUB 2
+
+//wget https://ftp.debian.org/debian/pool/main/g/grub2/grub-pc-bin_2.14-3_amd64.deb
+//wget https://ftp.debian.org/debian/pool/main/g/grub2/grub-common_2.14-3_amd64.deb
+wget https://ftp.debian.org/debian/pool/main/g/grub2/grub-efi-amd64_2.14-3_amd64.deb
+wget https://ftp.debian.org/debian/pool/main/g/grub2/grub-efi-amd64-bin_2.14-3_amd64.deb
+
+dpkg-deb -x grub-pc-bin_2.12-5_amd64.deb grub-pc-bin/
+dpkg-deb -x grub-common_2.12-5_amd64.deb grub-common/
+dpkg-deb -x grub-efi-amd64_2.14-3_amd64.deb grub-efi-amd64/
+dpkg-deb -x grub-efi-amd64-bin_2.14-3_amd64.deb grub-efi-amd64-bin/
+
