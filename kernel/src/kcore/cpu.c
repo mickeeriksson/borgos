@@ -12,14 +12,22 @@ cpu_t cpu[MAXCPU];
 uint32_t cpu_numcores=0;   //count of detected cores
 
 
+proc_t bootproc;
+
 void cpu_init_cpustate(int cpun){
     cpu[cpun].cpuid=cpun;
-    cpu[cpun].intenable=0;
-    cpu[cpun].ncli=0;
+    //cpu[cpun].intenable=0;
+    //cpu[cpun].ncli=0;  // moved to proc_t
     //cpu[cpun].currentproc=0;
     //cpu[cpun].ticks=0;
     cpu[cpun].status=CPU_STATUS_HALTED;
     cpu[cpun].ticks_in_1ms=0;
+
+    if (cpun==0) {
+        //wire with bootproc to have a valid ncli until proc is setup properly
+        cpu[cpun].currentproc = &bootproc;
+        cpu[cpun].currentproc->ncli =0;
+    }
 }
 
 

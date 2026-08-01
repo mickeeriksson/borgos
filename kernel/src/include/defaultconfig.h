@@ -60,7 +60,7 @@
 //#define VECTORTABLE_BASE          0xFFFF0000
 
 #define MAXCPU    4
-//#define MAXPROC  16
+#define MAXPROC  16
 
 //Ticktimer
 //#define TICKTIMER_HZ 10

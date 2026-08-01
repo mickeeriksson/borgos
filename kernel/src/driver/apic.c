@@ -12,6 +12,8 @@
 #define  LAPIC_REG_DFR         0x00E0  // Destination Format
 #define  LAPIC_REG_SPURIOUS	   0xF0
 
+#define  LAPIC_ICR_LOW         0x300
+#define  LAPIC_ICR_HIGH        0x310
 
 #define  APIC_REG_LVT_TMR	   0x0320
 #define  APIC_REG_LVT_PERF	   0x0340
@@ -41,15 +43,20 @@ cpu_t* apic_id_cpumap[MAXAPIC_LOGICAL_CPUID];
 uint32_t lapic_rd(adr_t lapicadr,uint32_t reg) {
     adr_t adr = lapicadr+reg;
     uint32_t val = mmio_read32(adr);
-    log_msg("lapic_rd 0x%lx = 0x%x\n", adr, val);
+    //log_msg("lapic_rd 0x%lx = 0x%x\n", adr, val);
     return val;
 }
 
 
 void lapic_wr(adr_t lapicadr,uint32_t reg,uint32_t val) {
     adr_t adr = lapicadr+reg;
-    log_msg("lapic_wr 0x%lx = 0x%x\n", adr, val);
+    //log_msg("lapic_wr 0x%lx = 0x%x\n", adr, val);
     mmio_write32(adr,val);
+}
+
+static void lapic_wait_idle(adr_t lapicadr) {
+    while ( lapic_rd(lapicadr,LAPIC_ICR_LOW) & (1 << 12)) // delivery status bit
+        __asm__ volatile("pause");
 }
 
 void apic_init(void) {
@@ -122,8 +129,36 @@ void apic_lapic_timer_start(uint8_t irqno, uint32_t intervallmillis){
 void apic_lapic_eoi(void) {
     adr_t apic_lapic_ptr = cpulapicadr;
     if (apic_lapic_ptr!=NULL) {
+        //log_msg("APIC_lapic EOI: lapic_ptr=%#lx\n",apic_lapic_ptr);
         lapic_wr(apic_lapic_ptr,APIC_REG_EOI,0x0);
     }
+}
+
+void apic_start_ap(uint8_t apic_id, uint8_t vector) {
+    adr_t apic_lapic_ptr = cpulapicadr;
+
+    lapic_wr(apic_lapic_ptr,0x280, 0x0);   // clear APIC errors
+
+    // 1. INIT IPI
+    lapic_wr(apic_lapic_ptr,LAPIC_ICR_HIGH, (uint32_t)apic_id << 24);
+    lapic_wr(apic_lapic_ptr,LAPIC_ICR_LOW, 0x00004500); // INIT, edge, assert
+    lapic_wait_idle(apic_lapic_ptr);
+
+    mdelay(10); // busy-wait 10 ms, PIT eller liknande
+
+    // 2. Första SIPI
+    lapic_wr(apic_lapic_ptr,LAPIC_ICR_HIGH, (uint32_t)apic_id << 24);
+    lapic_wr(apic_lapic_ptr,LAPIC_ICR_LOW, 0x00004600 | vector);
+    lapic_wait_idle(apic_lapic_ptr);
+    mdelay(2);
+
+    // 3. Andra SIPI (krävs enligt Intel MP-spec, äldre CPU:er kan behöva den)
+    lapic_wr(apic_lapic_ptr,0x280, 0x0);   // clear APIC errors
+
+    lapic_wr(apic_lapic_ptr,LAPIC_ICR_HIGH, (uint32_t)apic_id << 24);
+    lapic_wr(apic_lapic_ptr,LAPIC_ICR_LOW, 0x00004600 | vector);
+    lapic_wait_idle(apic_lapic_ptr);
+    mdelay(2);
 }
 
 #endif // CONFIG_APIC

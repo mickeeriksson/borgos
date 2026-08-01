@@ -6,6 +6,7 @@
 #include "bootmem.h"
 #include "mm.h"
 #include "cpu.h"
+#include "scheduler.h"
 #include "cpu/cpu_cpu.h"
 #include "cpu/cpu_getcpu.h"
 #include "driver/acpi.h"
@@ -14,7 +15,10 @@
 #include "bits.h"
 #include "delay.h"
 #include "irq.h"
+#include "proc.h"
 #include <cpuid.h>
+#include <stdio.h>
+#include <string.h>
 
 extern void bootdebug_init(void);
 extern void bootdebug_putc(uint8_t c);
@@ -30,6 +34,9 @@ extern adr_t _bootimage_end;
 
 extern adr_t bootimage_start; //This should be a phys address
 extern adr_t bootimage_end; //This should be a phys address
+
+extern char trampoline_start[], trampoline_end[], trampoline_lma[];
+
 
 //extern adr_t bootmem_start_address;
 
@@ -63,6 +70,7 @@ extern void apic_set_lapic_addr(adr_t local_apic_addr) ;
 extern void apic_lapic_init(void);
 extern void apic_lapic_timer_init(uint8_t irqno);
 extern void apic_lapic_timer_start(uint8_t irqno, uint32_t intervallmillis);
+extern void apic_start_ap(uint8_t apic_id, uint8_t vector) ;
 
 extern void pic8259_init_disabled(void);
 extern void pci_config_init(void);
@@ -295,10 +303,12 @@ void hal_bp_restack(void) {
     log_msg("HAL BP Start!\n");
     kprintf("HAL BP Start!\n");
 
+    proc_init();
+
     //Allocate new stack for BP
-    page_t* stackpage = page_alloc_pages(0, 5); //128Kb
+    page_t* stackpage = page_alloc_pages(0, 4); //64Kb  5=128, 4=64, 3=32, 2=16, 1=8
     adr_t stackaddr = PAGE2VIRT(stackpage);
-    size_t stacksize = PAGESIZE << 5;
+    size_t stacksize = PAGESIZE << 4;
     log_msg("BP stack addr: 0x%lx  size:0x%lx\n", stackaddr,stacksize);
 
     cpu_t* bpcpu = &cpu[0];
@@ -306,6 +316,26 @@ void hal_bp_restack(void) {
     bpcpu->stacksize = stacksize;
     adr_t newrsp = stackaddr + stacksize - 64;
     log_msg("Set BP stackpointer to : 0x%lx\n", newrsp);
+
+    //setup proc_t for bp
+    proc_t* bpstartproc = proc_alloc();
+    char* namestr = kmalloc(32,0);
+    sprintf(namestr,"bpstart CPU[%d]",0);
+    strlcpy(&bpstartproc->name[0], namestr, 32);
+    kfree(namestr);
+    //bpstartproc->name = namestr;
+    bpstartproc->kstackaddr = stackaddr;
+    bpstartproc->kstacksize = stacksize;
+    bpstartproc->pgdir = (adr_t) kernelpagetable;
+    bpstartproc->slice_ticks = 0x0FFFFFFFFFFFFFFF;
+    bpstartproc->state=RUNNING;  //dont preemp for now.
+    bpcpu->currentproc = bpstartproc;
+
+    bpstartproc->archcpu_context.cr3 = (adr_t) V2P(bpstartproc->pgdir);
+
+    //bpcpu->idleproc = bpstartproc;   // dont set as idleproc until all setup is done, otherwise it will be starved when starting other kerneltasks.....
+    int pid = proc_newpid(bpstartproc); // get a new pid for proc.
+    log_msg("allocated bp [%d] at %#lx, pid=%d\n", bpstartproc->name, bpstartproc,pid);
 
     __asm__ __volatile__(
        "mov %0, %%rsp\n"
@@ -431,7 +461,7 @@ void hal_start_cpuinterrupts() {
 
     cpu_t* cpu = CURRENTCPU;
     //volatile int irqBefLog = cpu_read_irq();
-    cpu->intenable = 1;
+    cpu->currentproc->intenable = 1;
     cpu_enable_irq();
     //log_msg("**********************************************************************\n");
     //log_msg("intenable=%d irqon=%d irqBefLog=%d\n",cpu->intenable,cpu_read_irq(),irqBefLog);
@@ -439,13 +469,103 @@ void hal_start_cpuinterrupts() {
     irq_add_irq_handler(0,irq_cpu_localtimer_tick_cb);
     //log_msg("**********************************************************************\n");
     //log_msg("intenable=%d irqon=%d\n",cpu->intenable,cpu_read_irq());
-    //apic_lapic_timer_start(0,1000);
+    int intervallmillis=500;
+    apic_lapic_timer_start(0,intervallmillis);
+    cpu->ticks_hz =1000/intervallmillis;
 }
 
+
+
+extern void hal_ap_init(void);
+void hal_start_ap(int cpunr) {
+    log_msg("\nStart SMP CPU[%d]\n", cpunr);
+
+    //Allocate new stack for BP
+    page_t* stackpage = page_alloc_pages(0, 4); //64Kb  5=128, 4=64, 3=32, 2=16, 1=8
+    adr_t stackaddr = PAGE2VIRT(stackpage);
+    size_t stacksize = PAGESIZE << 4;
+    log_msg("AP stack addr: 0x%lx  size:0x%lx\n", stackaddr,stacksize);
+    adr_t stackptr = stackaddr+stacksize;
+
+    *(volatile uint64_t *)(P2V(0x8000) + 0x08) = (adr_t) kernelpagetable;;
+    *(volatile uint64_t *)(P2V(0x8000) + 0x10) = stackptr;
+    *(volatile uint64_t *)(P2V(0x8000) + 0x18) = (uint64_t)hal_ap_init;
+
+    cpu_t *ccpu = &cpu[cpunr];
+    apic_start_ap(ccpu->archcpu.xapic_logicalid, 0x08);
+    //send_init_sipi(/* SIPI-vektor = */ 0x08);
+    //}
+
+    for (int i=0; i<10; i++) {
+        volatile uint8_t started = ccpu->started;
+        if (started) {
+            return;
+        }
+        mdelay(100);
+    }
+    log_msg("UNABLE TO START AP %d\n", cpunr);
+    PANIC("UNABLE TO START AP");
+
+}
+
+
+void hal_start_smp(void) {
+    log_msg("\nStart SMP\n");
+
+    //void start_ap(uint64_t pml4_phys, uint64_t ap_stack_top, void (*ap_main)(void)) {
+    size_t trampoline_len = trampoline_end - trampoline_start;
+    log_msg("Trampoline SRC start addr = %#lx\n", trampoline_lma);
+    //log_msg("Trampoline SRC end addr = %#lx\n", trampoline_start);
+    log_msg("Trampoline SRC len = %d\n", trampoline_len);
+    memcpy((void *)P2V(0x8000), trampoline_lma, trampoline_len);
+
+
+    for (int i=1; i<cpu_numcores; i++) {
+        hal_start_ap(i);
+    }
+
+    log_msg("ALL AP's started\n");
+
+}
+
+
+
+void hal_noop_task(void* arg) {
+
+    log_msg("\nhal_noop_task\n");
+
+    int i=0;
+    while(1){
+        i+=1;
+        log_msg("NO OP\n");
+        //usb_poll();
+        mdelay(1000);
+        //HANG HERE
+    }
+
+}
+
+
+
+void hal_start_scheduling(void) {
+    log_msg("\nStart Scheduling\n");
+    cpu_t* cpu = CURRENTCPU;
+    proc_t *p = cpu->currentproc;
+    p->slice_ticks=0;
+
+
+    proc_t *nopp = proc_create_kernelproc("HAL_NO_OP");
+    archproc_prepare_kernelproc_stack(nopp,hal_noop_task,0);
+    scheduler_enqueue(nopp);
+
+    log_msg("nopp=%#lx\n",nopp);
+}
 
 //extern void acpi_test_sdt(void);
 void hal_bp_init(void) {
     //called from kmain_bp_enter
+
+    scheduler_init(); //set up structures. Need to be done before enabling interrupts. (below), but no process in any queues yet!
 
     //Only done for BP.
     log_msg("\nPARSE ACPI\n");
@@ -496,6 +616,14 @@ void hal_ap_init(void) {
     arch_cpu_init(cpuid);
     arch_cpu_debugprint(&cpu[cpuid]);
 
+    cpu_t* ccpu = CURRENTCPU;
+    ccpu->started = 1;
+
+    int i=0;
+    while (1) {
+        i=i+1;
+        //log_msg("i=%d\n", i);
+    }
 
 
     PANIC("TODO LOAD IDT for AP"); //interrupt::init_exceptions_ap();  //loads IDT (same as for BSP)

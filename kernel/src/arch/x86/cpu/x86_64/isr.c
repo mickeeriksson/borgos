@@ -74,14 +74,15 @@ void isr_generic(trapframe_t *tframe) {
 
     cpu_t* cpu = CURRENTCPU;
     int irqOn = cpu_read_irq();
-    log_msg("ISR: intenable=%d irqon=%d\n",cpu->intenable,irqOn);
 
-    //log_msg("CPU[%d] IRQ count=%d \n",CURRENTCPU->cpuid,irqcounter);
-    log_msg("TRAP trapframe=%#lx vectorno=%d, irqno=%#lx, ip=%#lx\n"
-            ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
 
     if (tframe->isrno==0) {
         isr_division_handler(tframe);
+    }else if (tframe->isrno==6) {
+        log_msg("ISR: intenable=%d irqon=%d\n",cpu->currentproc->intenable,irqOn);
+        log_msg("TRAP trapframe=%#lx vectorno=%d, irqno=%#lx, ip=%#lx\n"
+                ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
+        PANIC("Invalid OPCODE");
     }else if (tframe->isrno==14) {
         //temp to get pagefault until snyggifiering
         isr_pagefault_handler(tframe);
@@ -93,9 +94,22 @@ void isr_generic(trapframe_t *tframe) {
         //DO NOTHING
     }else if (tframe->isrno>=32 && tframe->isrno<=47) {
         //IRQ
-        irq_process_irq(tframe->isrno-IRQ_STARTVECTOR);
-        apic_lapic_eoi();
+        int irq= tframe->isrno-IRQ_STARTVECTOR;
+        if (irq==0) {
+            //do EOI in reverse order. Du to schuling
+            //if not eoi before context_switch. Timer will never trigger again. (since we switch a irq-thread to a kernel/user thread.)
+            //Snygga upp beroende på att timer ligger på IRQ0.
+            //ev kanske inte hårdkodat till att vara just ett apic triggat IRQ?
+            apic_lapic_eoi();
+            irq_process_irq(irq);
+        }else {
+            irq_process_irq(irq);
+            apic_lapic_eoi();
+        }
     }else {
+        log_msg("ISR: intenable=%d irqon=%d\n",cpu->currentproc->intenable,irqOn);
+        log_msg("TRAP trapframe=%#lx vectorno=%d, irqno=%#lx, ip=%#lx\n"
+                ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
         PANIC("IN ISR, UNHANDLED!");
     }
     //kprintf("CPU[%d] IRQ count=%d \n",CURRENTCPU->cpuid,irqcounter);

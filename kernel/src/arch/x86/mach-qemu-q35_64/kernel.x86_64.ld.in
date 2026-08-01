@@ -38,11 +38,22 @@ SECTIONS {
 //        KEEP(*(.text.trampoline))
 //    }
 
+    . = ALIGN(4096);
+    trampoline_lma = .;
+    .trampoline 0x8000 : AT(trampoline_lma) {
+    //    .trampoline 0x8000 : AT (ADDR (.trampoline ) - _LD_RELOCATE_BASE){
+        *(.trampoline)
+    }
+    . = trampoline_lma + SIZEOF(.trampoline);
+
+
 	. += _LD_RELOCATE_BASE;
+
 
     .text.bootupperhigh ALIGN (4K) : AT (ADDR (.text.bootupperhigh) - _LD_RELOCATE_BASE){
           *(.text.bootupperhigh)
     }
+
 
 //    .text ALIGN (4K) : AT (ADDR (.text) - _LD_RELOCATE_BASE){
     .text  : AT (ADDR (.text) - _LD_RELOCATE_BASE){
@@ -56,6 +67,7 @@ SECTIONS {
       *(.driver_annotation)
       *(.usbdriver_annotation)
     }
+
 //    . = ALIGN(4K);
     .data ALIGN (4K) : AT (ADDR (.data) - _LD_RELOCATE_BASE){
       *(.data)

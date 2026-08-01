@@ -3,8 +3,10 @@
 
 #include "config.h"
 #include "cpu/cpu_cpu.h"
+#include "proc.h"
 
 #include "types.h"
+//#include "../arch/x86/cpu/i386/include/cpu/cpu_types.h"
 //#include "proc.h"
 
 #define CPU_STATUS_HALTED    0;
@@ -22,19 +24,21 @@ typedef struct cpustate {
 //    //struct context *context;     // Switch here to enter scheduler
 //    //struct tss_entry_struct tss;         // Used by x86 to find stack for interrupt
 //    //struct segdesc gdt[NSEGS];   // x86 global descriptor table
-//    //volatile uint booted;        // Has the CPU started?
+    volatile uint8_t started;        // Has the CPU started?
     uint8_t status;                  // 0=HALTED, 1=BOOTING, 3=UP,
-    int32_t ncli;                    // Depth of pushcli nesting.
-    int intenable;              // Were interrupts enabled before pushcli?
+    //int32_t ncli;                    // Depth of pushcli nesting. , moved to proc
+    //int intenable;              // Were interrupts enabled before pushcli?, moved to proc
 //    int preemptenabled;            //should current process be preempted on next entry to userspace?
     int preemptflag;               //should current process be preempted on next entry to userspace?
 
     size_t ticks_in_1ms;            // apic lapic timer ticks in 1ms
     //
 //    //void *tls[2];
-//    proc_t *currentproc;
-//    proc_t *idleproc;               //idleproc for this cpu.
+    proc_t *currentproc;
+    proc_t *idleproc;               //idleproc for this cpu.
 //    reg_t ticks;                 //increments by local timer
+    uint64_t ticks;                 //increments by local timer
+    size_t ticks_hz;                // ticks_per_second
     struct arch_cpu_info archcpu;
 
     adr_t stackadr;                 //bottom of stack, never to be passed below

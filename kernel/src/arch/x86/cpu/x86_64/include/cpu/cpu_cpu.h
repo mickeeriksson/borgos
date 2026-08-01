@@ -23,6 +23,7 @@ struct arch_cpu_info {
 
 };
 
+
 #define CPU_FLAG_IF 0x200
 
 //https://wiki.osdev.org/CPUID

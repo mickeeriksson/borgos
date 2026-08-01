@@ -434,7 +434,7 @@ int qemustdvga_pci_probe(device_t *dev) {
     //uint8_t edid[256];
     //qemustdvga_read_edid(dev, &edid[0]);
 
-    /*
+/*
     mdelay(1000);
     qemustdvga_testmode13(dev);
     mdelay(1000);
@@ -446,7 +446,7 @@ int qemustdvga_pci_probe(device_t *dev) {
     mdelay(1000);
     qemustdvga_testmode80x50(dev);
     mdelay(1000);
-    */
+  */
 
     //Set QEMU display to 1280x1024
     if (! (qemustdvga_set_vbemode(dev,1280,1024,32)==OK)) {

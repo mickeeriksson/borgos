@@ -8,6 +8,10 @@
 #include "driver/driver.h"
 #include "driver/usb/usb.h"
 #include "delay.h"
+
+#include "cpu.h"
+#include "proc.h"
+
 //extern void hal_init_early(void);
 
 
@@ -16,6 +20,8 @@ adr_t bootimage_end = 0; //This should be a phys address
 
 extern void hal_bp_init(void);
 extern void hal_pci_init(void);
+extern void hal_start_scheduling(void);
+extern void hal_start_smp(void);
 
 /*
     When kmain is called.
@@ -98,6 +104,13 @@ void kmain_bp_enter(void){
     pci_config_driver_init();
 
 
+    log_msg("***********************************************************************\n");
+    log_msg("*                    START SCHEDULING!                                *\n");
+    log_msg("***********************************************************************\n");
+    hal_start_scheduling();
+
+
+
     //test USB
     log_msg("***********************************************************************\n");
     log_msg("*                    START USB Subsystem!                             *\n");
@@ -105,6 +118,11 @@ void kmain_bp_enter(void){
     register_usb_drivers();
     usb_init();
 
+
+    log_msg("***********************************************************************\n");
+    log_msg("*                    START SMP!                                       *\n");
+    log_msg("***********************************************************************\n");
+    hal_start_smp();
 
 
     //cpptest_test();
@@ -115,14 +133,33 @@ void kmain_bp_enter(void){
     //-no-shutdown must not be used (otherwise anm excpetion will be thrown)
 
 
+
+    //Simulate work......
     int i=0;
-    while(i<5000){
+    while(i<50){
         i+=1;
-        //log_msg("...2s\n");
-        usb_poll();
+        log_msg("WORK (%d)\n",i);
+        //usb_poll();
         mdelay(100);
         //HANG HERE
     }
+
+
+    //Kmain setup is finished leave rest to started tasks....
+    cpu_t* cpu = CURRENTCPU;
+    proc_t* idleproc = cpu->currentproc;
+    cpu->idleproc = idleproc;   // dont set as idleproc until all setup is done, otherwise it will be starved when starting other kerneltasks.....
+
+
+    i=0;
+    while(i<5000){
+        i+=1;
+        log_msg(".... NO WORK (%d)\n",i);
+        mdelay(100);
+        //HANG HERE
+    }
+
+
     io_outb(0xf4, 0x00);
 }
 

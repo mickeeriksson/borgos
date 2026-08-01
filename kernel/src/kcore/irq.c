@@ -2,6 +2,7 @@
 #include "error.h"
 #include "log.h"
 #include "irq.h"
+#include "scheduler.h"
 #include "cpu/cpu_getcpu.h"
 
 // Pushcli/popcli are like cli/sti except that they are matched:
@@ -45,10 +46,30 @@ void irq_process_irq(uint8_t irq){
 
 void irq_cpu_localtimer_tick_cb(){
     cpu_t* cpu = CURRENTCPU;
-    int irqOn = cpu_read_irq();
-    log_msg("intenable=%d irqon=%d\n",cpu->intenable,irqOn);
-    log_msg("TICK CPU[%d]\n",cpu->cpuid);
-    log_msg("intenable=%d irqon=%d\n",cpu->intenable,cpu_read_irq());
+    //int irqOn = cpu_read_irq();
+    cpu->ticks++;
+    //log_msg("intenable=%d irqon=%d\n",cpu->intenable,irqOn);
+
+    //log_msg("intenable=%d irqon=%d\n",cpu->intenable,cpu_read_irq());
+    proc_t *p = cpu->currentproc;
+    if (p) {
+        if (p->slice_ticks>0) {
+            p->slice_ticks--;   //count down ticks to preemtion.
+        }
+        log_msg("TICK CPU[%d]:%d slice:%#lx\n",cpu->cpuid,cpu->ticks,p->slice_ticks);
+    }
+    // check sleeping tasks
+
+    if (p->ncli == 0) {
+        //no cpu_save_calls.
+        //no locks hold (since ncli is also ++, at call irq_save() in  spinlock
+        //do this better in future by check number of locks held by proc_t
+
+        //try schedule this process.
+        scheduler_schedule();
+    }else {
+        log_msg("Skip scheduler_schedule cpu->ncli=%dh\n",p->ncli);
+    }
 }
 
 
@@ -68,10 +89,10 @@ void irq_save(void)
 
     //log_msg("irq_save cpuid=%d at %#x ncli (before)=%d\n",current_cpu->cpuid, current_cpu,current_cpu->ncli);
 
-    if(current_cpu->ncli == 0){
-        current_cpu->intenable = irqOn;
+    if(current_cpu->currentproc->ncli == 0){
+        current_cpu->currentproc->intenable = irqOn;
     }
-    current_cpu->ncli++;
+    current_cpu->currentproc->ncli++;
 
     volatile int irqOn3 = cpu_read_irq();
     if(irqOn3){
@@ -93,9 +114,9 @@ void irq_restore(void)
     //log_msg("irq_restore cpuid=%d at %#x ncli (before)=%d\n",current_cpu->cpuid, current_cpu,current_cpu->ncli);
     if(irqOn)
         PANIC("popcli - interruptible");
-    if(--current_cpu->ncli < 0)
+    if(--current_cpu->currentproc->ncli < 0)
         PANIC("popcli called 1 more time then pushcli?");  //called popcli 1 more time then pushcli??
-    if(current_cpu->ncli == 0 && current_cpu->intenable){
+    if(current_cpu->currentproc->ncli == 0 && current_cpu->currentproc->intenable){
         //log_msg("spinlock:popcli CALL sti(), ncli=%d, intenable=%d cpu=0x%x\n",current_cpu->ncli,current_cpu->intenable,current_cpu);
         cpu_enable_irq();
     }else{

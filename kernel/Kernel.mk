@@ -118,12 +118,23 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.S
 	$(AS) $(ASFLAGS) $(INCLUDES) $< -o $@
 	@echo "" #make space between compiles....
 
+$(OBJDIR)/%.o: $(SRCDIR)/%.S
+	$(AS) $(ASFLAGS) $(INCLUDES) $< -o $@
+	@echo "" #make space between compiles....
+
+#$(OBJDIR)/trampoline.bin:
+#	$(AS) $(ASFLAGS) -o $(OBJDIR)/trampoline_tmp.o $(CPUDIR)/smp_trampoline/trampoline.S
+#	$(LD)  -Ttext 0x0 --oformat binary -o $@ $(OBJDIR)/trampoline_tmp.o
+
+#$(OBJDIR)/trampoline_blob.o: $(OBJDIR)/trampoline.bin
+#	llvm-objcopy -I binary -O elf64-x86-64 -B i386:x86-64 $< $@
+
 #kernel-lib:
 #	RUST_TARGET_PATH=$(shell pwd) xargo -v build --target x86_64-firstos
 
 #kernel-elf: echo clean $(KERNEL_OBJS) kernel-lib
 #kernel-elf: echo clean kernel-lib
-kernel-elf: echo fastclean $(KERNEL_OBJS)
+kernel-elf: echo fastclean $(KERNEL_OBJS) 
 #	$(CPP) -E -P $(LDFILE) -o $(TARGETDIR)/kernel.ld
 #	$(CPP) -E -P $(LDFILE) -o kernel.ld
 

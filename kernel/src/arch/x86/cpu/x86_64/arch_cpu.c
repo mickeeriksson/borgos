@@ -47,6 +47,9 @@ void arch_cpu_init(int cpuid) {
         acpu->xapic_logicalid = xAPIXid;
         apic_id_cpumap[xAPIXid] = cpup;
     }
+
+
+
 }
 
 int arch_cpu_hasfeature_APIC(void) {
