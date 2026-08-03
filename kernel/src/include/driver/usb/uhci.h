@@ -4,7 +4,7 @@
 #include "types.h"
 #include "driver/usb/usb.h"
 
-#define UHCI_DEBUG 1
+//#define UHCI_DEBUG 1
 
 
 

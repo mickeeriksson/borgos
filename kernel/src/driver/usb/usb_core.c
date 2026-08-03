@@ -665,10 +665,10 @@ USBRESULT usb_enumerate_hcd_roothub(usb_hcd_t* hcd) {
 }
 
 
-void usb_enumerate_roothub(void) {
+void usb_enumerate_roothubs(void) {
     for (int i=0;i<MAX_HCD_DEVS;i++) {
         usb_hcd_t* hcd = hcd_devices[i];
-        if (hcd>0) {
+        if (hcd>0 && hcd->hcdstate==HCD_STATE_STARTED) {
             usb_enumerate_hcd_roothub(hcd);
         }
     }
@@ -678,7 +678,7 @@ void usb_enumerate_roothub(void) {
 void usb_poll(void) {
     for (int i=0;i<MAX_HCD_DEVS;i++) {
         usb_hcd_t* hcd = hcd_devices[i];
-        if (hcd>0) {
+        if (hcd>0 && hcd->hcdstate==HCD_STATE_STARTED) {
             hcd->poll(hcd);
         }
     }
@@ -686,10 +686,26 @@ void usb_poll(void) {
 }
 
 void usb_init(void) {
+    log_msg("USB setup!\n");
+    for (int i=0;i<MAX_HCD_DEVS;i++) {
+        usb_hcd_t* hcd = hcd_devices[i];
+        if (hcd>0 && hcd->hcdstate==HCD_STATE_INIT) {
+            hcd->setup(hcd);
+        }
+    }
+
+    log_msg("USB start!\n");
+    for (int i=0;i<MAX_HCD_DEVS;i++) {
+        usb_hcd_t* hcd = hcd_devices[i];
+        if (hcd>0 && hcd->hcdstate==HCD_STATE_SETUP) {
+            hcd->start(hcd);
+        }
+    }
+
     log_msg("USB init!\n");
 
     //for (int i=0;i<MAX_HCD_DEVS;i++) {
     //    hcd_devices[i]=0;
     //}
-    usb_enumerate_roothub();
+    usb_enumerate_roothubs();
 }

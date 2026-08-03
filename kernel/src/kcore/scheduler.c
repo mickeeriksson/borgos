@@ -5,8 +5,8 @@
 #include "mm.h"
 #include <string.h>
 
-#define SCHLOG(...)    log_msg(__VA_ARGS__)
-//#define SCHLOG(...)
+//#define SCHLOG(...)    log_msg(__VA_ARGS__)
+#define SCHLOG(...)
 
 struct list_head sleepinglist;
 struct list_head runnablelist;
@@ -185,6 +185,8 @@ void scheduler_schedule(void) {
             PANIC("Nothing to switch to!\n");
         }
     }
+
+    //next 2 lines are the same as in finish_switch
     schedulercounter--;
     spinunlock(&schedulerspin);
     SCHLOG("Scheduler Exit,  schedulerspin=%d\n",schedulerspin);

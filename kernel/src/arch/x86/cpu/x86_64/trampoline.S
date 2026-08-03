@@ -139,6 +139,7 @@ long_start:
     mov     (%rax), %rax
 
     /* Hoppa till C-koden, t.ex. void ap_main(void) */
+    subq $8, %rsp  //eftersom vi gör en jmp istf en call så behöver vi justera stackpekaren så att den blir 16bytesalignad -8 bytes 
     jmp     *%rax
 
 trampoline_end:

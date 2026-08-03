@@ -64,8 +64,9 @@ void isr_division_handler(trapframe_t *tframe) {
     PANIC("DIVISION BY ZERO, UNHANDLED!");
 }
 
-
+extern void check_stackalign(void);
 void isr_generic(trapframe_t *tframe) {
+    //check_stackalign();
     irqcounter++;
 
     if ( ((uintptr_t)tframe & 0xF) != 0) {

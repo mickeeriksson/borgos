@@ -8,11 +8,7 @@ extern void cpu_kerneltask_trampoline(void);
 
 void archproc_prepare_kernelproc_stack(proc_t* p, void (*entry)(void *), void *arg) {
     log_msg("prepare_kernelproc_stack\n");
-
-
-
-
-
+    
     uint64_t *sp = (uint64_t *)(p->kstackaddr + p->kstacksize-64);
 
     // /* KRITISKT: se stack-alignment-avsnittet nedan innan du hoppar över detta

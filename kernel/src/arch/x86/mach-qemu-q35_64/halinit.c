@@ -77,6 +77,8 @@ extern void pci_config_init(void);
 extern void pci_config_add_region(uint64_t base_address, uint16_t pci_segment_group, uint8_t bus_number_start, uint8_t bus_number_end) ;
 extern void pci_config_debugprint_regions(void);
 
+extern void check_stackalign(void);
+
 struct fb_info boot_vfb;
 struct fb_ops boot_vfb_ops;
 
@@ -531,7 +533,7 @@ void hal_start_smp(void) {
 
 
 void hal_noop_task(void* arg) {
-
+    check_stackalign();
     log_msg("\nhal_noop_task\n");
 
     int i=0;
@@ -553,12 +555,10 @@ void hal_start_scheduling(void) {
     proc_t *p = cpu->currentproc;
     p->slice_ticks=0;
 
-
-    proc_t *nopp = proc_create_kernelproc("HAL_NO_OP");
-    archproc_prepare_kernelproc_stack(nopp,hal_noop_task,0);
-    scheduler_enqueue(nopp);
-
-    log_msg("nopp=%#lx\n",nopp);
+    //proc_t *nopp = proc_create_kernelproc("HAL_NO_OP");
+    //archproc_prepare_kernelproc_stack(nopp,hal_noop_task,0);
+    //scheduler_enqueue(nopp);
+    //log_msg("nopp=%#lx\n",nopp);
 }
 
 //extern void acpi_test_sdt(void);
@@ -610,7 +610,15 @@ void hal_bp_init(void) {
 
 }
 
+void testfunc(void) {
+    //og_msg("TESTFUNC\n");
+    return;
+}
+
+
 void hal_ap_init(void) {
+    //check_stackalign();
+    testfunc();
     log_msg("hal_ap_init\n");
     int cpuid = arch_getcpu_cpuid();
     arch_cpu_init(cpuid);

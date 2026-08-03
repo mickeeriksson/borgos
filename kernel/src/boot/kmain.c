@@ -118,12 +118,12 @@ void kmain_bp_enter(void){
     register_usb_drivers();
     usb_init();
 
-
+/*
     log_msg("***********************************************************************\n");
     log_msg("*                    START SMP!                                       *\n");
     log_msg("***********************************************************************\n");
     hal_start_smp();
-
+*/
 
     //cpptest_test();
 
@@ -139,7 +139,7 @@ void kmain_bp_enter(void){
     while(i<50){
         i+=1;
         log_msg("WORK (%d)\n",i);
-        //usb_poll();
+        usb_poll();
         mdelay(100);
         //HANG HERE
     }

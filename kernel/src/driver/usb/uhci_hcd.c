@@ -9,7 +9,7 @@
 #include "mm.h"
 #include "delay.h"
 
-#define UHCI_DEBUG 1
+//#define UHCI_DEBUG 1
 
 const struct pci_device_id uhcihcd_pci_idents[] = {
     PCI_DEVICE(0x8086, 0x7020,"Intel Corporation : 82371SB PIIX3 USB [Natoma/Triton II]"),   //UHCI:  Intel Corporation :  82371SB PIIX3 USB [Natoma/Triton II]
@@ -1022,9 +1022,9 @@ RESULT uhcihcd_global_reset(adr_t ioregbase) {
 }
 
 //Init stackframe and setup all QueueHeads
-RESULT uhcihcd_setup_schedule(device_t *dev) {
+RESULT uhcihcd_setup_schedule(uhci_hcd_device_t* priv) {
     //pcidevice_t* pcidev = (pcidevice_t*) dev;
-    uhci_hcd_device_t* priv = dev->priv;
+    //uhci_hcd_device_t* priv = dev->priv;
 
     page_t *stackpage = page_alloc_pages(GFP_DMA16,0);   //4096 bytes
     priv->stackframe = (uint32_t*)PAGE2VIRT(stackpage);
@@ -1087,6 +1087,59 @@ RESULT uhcihcd_setup_schedule(device_t *dev) {
     return OK;
 }
 
+
+int uhcihcd_setup(usb_hcd_t *hcd) {
+    uhci_hcd_device_t* priv = (uhci_hcd_device_t*) hcd;
+    adr_t ioregbase = priv->io_regbase;
+
+    log_msg("hcihcd_start! TODO move all schedule stup here!\n");
+        if(! (uhcihcd_global_reset(ioregbase)==OK)){
+        PANIC("Unable to reset UHCI Controller?\n");
+    }
+
+    if(! (uhcihcd_setup_schedule(priv)==OK)){
+        PANIC("Unable to setup UHCI Schedule\n");
+    }
+
+    // set the Host Controllers schedule
+    io_outd(ioregbase+UHCI_REG_FRBASEADD, V2P(priv->stackframe)); // physical address
+    io_outw(ioregbase+UHCI_REG_FRNUM, 0);                // start at frame 0
+    io_outb(ioregbase+UHCI_REG_SOFMOD, 0x40);            // start of frame to default,standard 12MHz SOF timing value
+    io_outw(ioregbase+UHCI_REG_USBINTR, 0x0000);         // no interrupts, means polling
+    io_outw(ioregbase+UHCI_REG_USBSTS, 0xFFFF);              // Clear any status bits.
+
+
+
+
+    //dev->initialized = 1;
+    priv->usb_hcd.hcdstate = HCD_STATE_SETUP;
+    return 0;
+}
+
+int uhcihcd_start(usb_hcd_t *hcd) {
+    uhci_hcd_device_t* priv = (uhci_hcd_device_t*) hcd;
+    adr_t ioregbase = priv->io_regbase;
+    //start controller
+    //bit0 (RS) = Run/Stop=1 (execute the frame list),
+    //bit6 (CF)= Configure Flag=1 (informs the controller/root hub that software has finished configuring it — required by spec before ports will function normally)
+    //bit7 (MAXP) = Max Packet=1 (allow 64-byte packets; harmless for low-speed/8-byte-max devices, needed for full-speed ones)
+    io_outw(ioregbase+UHCI_REG_USBCMD, (1<<7) | (1<<6) | (1<<0));
+
+    priv->usb_hcd.hcdstate = HCD_STATE_STARTED;
+    return 0;
+}
+
+int uhcihcd_stop(usb_hcd_t *hcd) {
+    PANIC("TODO");
+    return 0;
+}
+
+int uhcihcd_release(usb_hcd_t *hcd) {
+    PANIC("TODO");
+    return 0;
+}
+
+
 int uhcihcd_pci_probe(device_t *dev) {
     pcidevice_t* pcidev = (pcidevice_t*) dev;
     log_msg("hcihcd_pci_probe\n");
@@ -1106,7 +1159,7 @@ int uhcihcd_pci_probe(device_t *dev) {
     log_msg("BAR 4 (I/O)   = 0x%lx \n",pcidev->bar[4].addr);
     priv->io_regbase=pcidev->bar[4].addr;
     priv->mmio_regbase=0; //disable
-    adr_t ioregbase = priv->io_regbase;
+    //adr_t ioregbase = priv->io_regbase;
 
     //test USB HCD Version från PCI config extended field 0x60
     uint8_t usbversion = pci_config_read8(pcidev,PCICONFIG_USB_EXT_SBRN); //0x60, USB version of UHCI=0x10, EHCI=0x20, xHCI=0x30
@@ -1127,6 +1180,30 @@ int uhcihcd_pci_probe(device_t *dev) {
     uint32_t legacydefault = pci_config_read32(pcidev,PCICONFIG_USB_EXT_USBLEGSUP);
     log_msg("Legacy support = %#x\n",legacydefault);
     pci_config_write16(pcidev,PCICONFIG_USB_EXT_USBLEGSUP,0x8F00);  /* disable all SMI sources, clear their status */
+
+
+    priv->usb_hcd.name = "UHCI";
+    priv->usb_hcd.setup=uhcihcd_setup;
+    priv->usb_hcd.start=uhcihcd_start;
+    priv->usb_hcd.stop=uhcihcd_stop;
+    priv->usb_hcd.release=uhcihcd_release;
+    priv->usb_hcd.poll=uhcihcd_poll;
+
+    priv->usb_hcd.hcd_roothub_is_port_present = uhcihcd_roothub_is_port_present;
+    priv->usb_hcd.hcd_roothub_port_reset = uhcihcd_roothub_port_reset;
+    priv->usb_hcd.hcd_roothub_is_port_device_present=uhcihcd_roothub_is_port_device_present;
+    priv->usb_hcd.hcd_roothub_port_speed=uhcihcd_roothub_port_speed;
+
+    priv->usb_hcd.submit_ctrl_xfer_request=uhcihcd_submit_ctrl_xfer_request;
+    priv->usb_hcd.submit_endp_xfer_request_sync=uhcihcd_submit_endp_xfer_request_sync; //TODO, change to interrupt driver
+    priv->usb_hcd.submit_endp_xfer_request=uhcihcd_submit_endp_xfer_request;
+
+
+    priv->usb_hcd.hcdstate = HCD_STATE_UNDEFINED;
+
+    usb_debug("UHCI PROBED!\n" );
+
+    /*
 
     if(! (uhcihcd_global_reset(ioregbase)==OK)){
         PANIC("Unable to reset UHCI Controller?\n");
@@ -1150,7 +1227,7 @@ int uhcihcd_pci_probe(device_t *dev) {
     io_outw(ioregbase+UHCI_REG_USBCMD, (1<<7) | (1<<6) | (1<<0));
 
 
-    priv->usb_hcd.name = "UHCI";
+
     priv->usb_hcd.hcd_roothub_is_port_present = uhcihcd_roothub_is_port_present;
     priv->usb_hcd.hcd_roothub_port_reset = uhcihcd_roothub_port_reset;
     priv->usb_hcd.hcd_roothub_is_port_device_present=uhcihcd_roothub_is_port_device_present;
@@ -1159,11 +1236,9 @@ int uhcihcd_pci_probe(device_t *dev) {
     priv->usb_hcd.submit_ctrl_xfer_request=uhcihcd_submit_ctrl_xfer_request;
     priv->usb_hcd.submit_endp_xfer_request_sync=uhcihcd_submit_endp_xfer_request_sync; //TODO, change to interrupt driver
     priv->usb_hcd.submit_endp_xfer_request=uhcihcd_submit_endp_xfer_request;
-    priv->usb_hcd.poll=uhcihcd_poll;
 
-    //usb_attach_hcd(&priv->usb_hcd);
-    usb_debug("UHCI STARTED!\n" );
 
+*/
 
 
 
@@ -1195,10 +1270,17 @@ int uhcihcd_pci_probe(device_t *dev) {
 int uhcihcd_pci_attach(device_t *dev) {
     //pcidevice_t* pcidev = (pcidevice_t*) dev;
     uhci_hcd_device_t* priv = dev->priv;
-    log_msg("hcihcd_pci_attach\n");
-    usb_attach_hcd(&priv->usb_hcd);
+    if (dev->initialized) {
+        log_msg("hcihcd_pci_attach\n");
+        priv->usb_hcd.hcdstate = HCD_STATE_INIT;
+        usb_attach_hcd(&priv->usb_hcd);
+    }else {
+        log_msg("Device is not initialized, skip attach\n");
+    }
     return 0;
 }
+
+
 
 struct pcidriver uhcihcd_pci_driver = {
     .driver.name = "USB Universal Host Controller Interface (UHCI)",

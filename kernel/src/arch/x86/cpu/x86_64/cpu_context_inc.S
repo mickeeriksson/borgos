@@ -40,10 +40,6 @@ cpu_swapcontext:
 
 .global cpu_kerneltask_trampoline
 cpu_kerneltask_trampoline:
-    #mov %r12, %rax      # entry-pekaren låg smugglad i r12
-    #mov %r13, %rdi       # arg låg smugglad i r13 — blir första parametern per System V
-    #call *%rax           # kör entry(arg)
     mov %r12, %rdi       # entry-pekaren låg smugglad i r12
     mov %r13, %rsi       # arg låg smugglad i r13 — blir första parametern per System V
     call scheduler_start_kerneltask
-    ##call scheduler_task_exit        # ska aldrig nås om entry loopar för evigt

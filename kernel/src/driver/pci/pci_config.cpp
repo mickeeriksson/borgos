@@ -7,6 +7,7 @@
 #include "driver/pci/pci.h"
 #include "error.h"
 #include "hwdb.h"
+#include "../../arch/x86/cpu/i386/include/cpu/cpu_types.h"
 #include "../../include/device.h"
 #include "../../include/mm.h"
 #include "cpu/mmio.h"
@@ -251,6 +252,7 @@ extern "C" void pci_config_parse_bars(pcidevice_t* pcidev,int maxbars) {
                 //32 bit
                 log_msg("      IS 32 bit MEMORY BAR\n");
                 swidth=BARWIDTH_32;
+                base = bardata & ~0b1111; //filter out bit 0:3
                 pci_config_write32(pcidev,baroffsett,0xFFFFFFFF);
                 uint32_t readbacklow = pci_config_read32(pcidev,baroffsett);
                 size = readbacklow & ~0xF; //maskera bort kontrollbitarna
@@ -267,14 +269,36 @@ extern "C" void pci_config_parse_bars(pcidevice_t* pcidev,int maxbars) {
                 //64 bit
                 log_msg("      IS 64 bit MEMORY BAR\n");
                 swidth=BARWIDTH_64;
-                PANIC("IS 64bit BAR, TODO handle FETCH Additional registers...");
+                uint32_t address_low = bardata;
+                uint32_t address_hi = pci_config_read32(pcidev,baroffsett+4);
+                base = (((uint64_t)address_hi << 32) + address_low) & ~0b1111; //filter out bit 0:3
+
+                //writeback to get size
+                //write FFFF_FFFF_FFFF_FFF0 to bar to get size
+                pci_config_write32(pcidev,baroffsett,0xFFFFFFF0);
+                pci_config_write32(pcidev,baroffsett+4,0xFFFFFFFF);
+
+                uint32_t readback_low = pci_config_read32(pcidev,baroffsett);
+                uint32_t readback_hi = pci_config_read32(pcidev,baroffsett+4);
+                readback_low = readback_low & ~0xF; //maskera bort kontrollbitarna
+
+                uint64_t readback = ((uint64_t)readback_hi<<32) + readback_low;
+                size = ~readback + 1; //invertera och lägg till 1
+
+                //restore adress
+                pci_config_write32(pcidev,baroffsett,address_low);
+                pci_config_write32(pcidev,baroffsett+4,address_hi);
+
+
+                log_msg("      Size=0x%lx (%d)\n",size,size);
+                //PANIC("IS 64bit BAR, TODO handle FETCH Additional registers...");
             }
             if(bardata & (1<<3)){
                 //bit 3 means prefetchable.
                 log_msg("      IS PREFETCHABLE\n");
                 prefetchable=1;
             }
-            base = bardata & ~0b1111; //filter out bit 0:3
+
         }
         pcidev->bar[baridx].addr = base;
         pcidev->bar[baridx].size = size;
@@ -397,9 +421,9 @@ extern "C" void pci_config_driver_init(void) {
                 cmdreg = pci_config_read16(pcidev,0x04) & 0xFFFF; //cmd reg
                 log_msg("Command = %#x\n",cmdreg);
 
-                log_msg("Probe (& bind) device");
+                log_msg("Probe (& bind) device\n");
                 pcidriver->driver.probe((device_t*) pcidev);
-                log_msg("Attach (& start) device");
+                log_msg("Attach (& start) device\n");
                 pcidriver->driver.attach((device_t*) pcidev);
                 log_msg("---------------------------------------------\n");
 

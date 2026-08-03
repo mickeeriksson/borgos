@@ -63,12 +63,24 @@ static const usbdriver_annotation_t obj_name __attribute__((section("usbdriver_a
 struct usb_hcd;
 struct usb_xfer_request;
 
+enum hcd_state {
+    HCD_STATE_UNDEFINED = 0,
+    HCD_STATE_INIT      = 1,      //after attached or released
+    HCD_STATE_SETUP     = 2,      //after successfull setup, or stop
+    HCD_STATE_STARTED   = 3,      //after successfull start
+};
+
 typedef struct usb_hcd {
     const char *name;
     //list of attached usb-devices
     //how to implement?
+    int hcdstate;
 
     //operation pointers
+    USBRESULT (*setup)(struct usb_hcd *hcd);    //allocate structures, and init controller
+    USBRESULT (*release)(struct usb_hcd *hcd);  //stop controller and relerase structures.
+    USBRESULT (*start)(struct usb_hcd *hcd);    //start schedule, start irq
+    USBRESULT (*stop)(struct usb_hcd *hcd);     //stop schedule stop irq
     USBRESULT (*submit_ctrl_xfer_request)(struct usb_xfer_request *req,int waitforcompletion,int timeout);
     USBRESULT (*submit_endp_xfer_request_sync)(struct usb_xfer_request *req,int waitforcompletion,int timeout);
     USBRESULT (*submit_endp_xfer_request)(struct usb_xfer_request *req);

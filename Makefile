@@ -58,10 +58,15 @@ run-pcq35-dbg-image:
 
 	qemu-system-x86_64 -M q35 -smp 4 -m 1g -net none  -serial stdio -monitor telnet:127.0.0.1:5555,server,nowait -drive format=raw,file=i386hd.img \
 -device VGA,vgamem_mb=16,edid=on --trace "vga_cirrus*" --trace "vga_mem*" \
+-device nec-usb-xhci,id=xhci --trace events=xhci_traceevents.txt \
 -device isa-debug-exit,iobase=0xf4,iosize=0x04 -no-reboot -S -gdb tcp::1234 #-singlestep #-S -gdb tcp::1234 -D ./qlog.txt
+#-device edu \
+-device qemu-xhci,id=xhci --trace events=xhci_traceevents.txt \
+#-device usb-kbd,bus=xhci.0
+
 #-device piix3-usb-uhci,id=uhci1 --trace events=uhci_traceevents.txt \
 #-device usb-kbd,bus=uhci1.0 \
-#-device edu \
+
 
 #-vga none -vga std --trace "vga_cirrus*" --trace "vga_mem*" \
 #-vga none -device cirrus-vga --trace "vga_cirrus*" --trace "vga_mem*" \

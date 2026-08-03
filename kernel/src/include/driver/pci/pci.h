@@ -60,12 +60,22 @@ typedef struct pci_config_regs {
 //samma register som offsett
 #define PCICONFIG_COMMAND           0x04
 
+#define PCICONFIG_CMD_IO_SPACE       (1u << 0)
+#define PCICONFIG_CMD_MEM_SPACE      (1u << 1)
+#define PCICONFIG_CMD_BUS_MASTER     (1u << 2)
+#define PCICONFIG_CMD_INTX_DISABLE   (1u << 10)
+
 //utökade configregs för USB. Finns inget om detta i PCI-dokumentationen. KOlla USB-dok
 //https://stuff.mit.edu/afs/sipb/contrib/doc/specs/protocol/usb/UHCI11D.PDF page 19
 //https://www.intel.com/Assets/PDF/datasheet/290562.pdf page 106
 #define PCICONFIG_USB_EXT_SBRN       0x60  // 1byte, Serial Bus Release Number	R/W (oftast RO i praktiken). Anger vilken USB-spec kontrollern följer: 0x10 = USB 1.0, 0x11 = USB 1.1
 #define PCICONFIG_USB_EXT_FLADJ      0x61  // 1byte,  Frame Length Adjustment	R/W. Justerar SOF-ramlängden i steg om ca 121 ppm för att kompensera klockavvikelser. Reset-värde brukar vara 0x20
 #define PCICONFIG_USB_EXT_USBLEGSUP  0xC0  // 2bytes, USB Legacy Support	R/W. Styr BIOS SMI-trapping för legacy tangentbord/mus (port 60h/64h-emulering). Här tar din drivrutin ownership från BIOS
+
+
+//Capabillity ID's
+#define PCICONFIG_CAP_ID_MSI         0x05u
+#define PCICONFIG_CAP_ID_MSIX        0x11u
 
 enum bartype_t {
     BARTYPE_UNKNOWN   = 0,

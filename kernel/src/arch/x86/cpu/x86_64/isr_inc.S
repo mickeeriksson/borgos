@@ -97,7 +97,7 @@ isr_common:
     pushq %r13
     pushq %r14
     pushq %r15
-
+    //pushq $42 //dummy för att framkall stackalignfel.
 
 
     //OBS! Make sure stackframe is always a size of 16bytes, so that alignment is 16bytes.
@@ -134,3 +134,16 @@ isr_common:
 
     //# 6. Återgå från avbrott
     iretq
+
+
+
+
+.globl check_stackalign
+check_stackalign:
+    lea     8(%rsp), %rax      # rsp vid call-site
+    test    $15, %al
+    jnz     .Lbad
+    ret
+.Lbad:
+    //ud2                        # SIGILL -> exakt stackframe i debuggern
+    jmp .Lbad
