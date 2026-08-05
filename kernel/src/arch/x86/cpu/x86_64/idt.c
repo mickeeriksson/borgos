@@ -1,4 +1,5 @@
 #include "cpu/idt.h"
+#include "cpu.h"
 #include "log.h"
 #include <string.h>
 
@@ -29,6 +30,12 @@ void _set_idt_desc_64(uint16_t select, uint64_t offset, uint8_t type, idt_entry_
     desc->offset_63_32 = (offset & 0xFFFFFFFF00000000) >> 32;
 }
 
+void idt_load_idt64_current_cpu() {
+    cpu_t* cpup = CURRENTCPU;
+    idtr_ptr_t *dbgidtr = &idtr;
+    log_msg("Load IDT fort CPU[%d] idt_ptr: 0x%lx\n", cpup->cpuid,dbgidtr);
+    idt_lidt ((adr_t) &idtr);
+}
 
 void idt_init(void) {
     log_msg("Init IDT\n");

@@ -42,5 +42,8 @@
 #define MAXAPIC_LOGICAL_CPUID     256                  //Max logical cpu id's,
 
 #define IRQ_STARTVECTOR           32            //map IRQ0 to interruptvector 32
+#define MSIIRQ_STARTVECTOR        64            //IRQ32   //MSI interrupts
+#define MSIIRQ_COUNT              32            //MSI interrupts
+
 
 #endif

@@ -4,7 +4,7 @@
 #include "types.h"
 
 
-#define GDTSIZE		20
+#define GDTSIZE		16
 
 typedef struct gdt_entry_64 {
     uint32_t lim_15_0 : 16;  // Low bits of segment limit
@@ -31,6 +31,7 @@ typedef struct gdt_ptr {
     uint16_t unused;
 } __attribute__((packed)) gdtr_ptr_t;
 
-
+extern void gdt_init_per_cpu();
+extern void gdt_flush_gdt64_current_cpu();
 
 #endif

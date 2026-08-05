@@ -3,7 +3,7 @@
 
 #include "driver/usb/usb_std.h"
 
-#define USB_DEBUG 1
+//#define USB_DEBUG  1
 
 #define USB_MIN_LOG_PRIORITY        4
 #define USB_LOG_PRIORITY_ERROR      3
@@ -17,12 +17,16 @@
 /** Maximum number of endpoints per interface.  */
 #define USB_DEVICE_MAX_ENDPOINTS  8
 
+
 enum kUSB_speed {
     kUSB_SPEED_UNKNOWN  = 0,
     kUSB_SPEED_LOW  = 1,
     kUSB_SPEED_FULL = 2,
 //    USB_SPEED_HIGH = 0,
 };
+
+
+
 
 typedef int USBRESULT;
 #define USB_OK 0
@@ -68,6 +72,8 @@ enum hcd_state {
     HCD_STATE_INIT      = 1,      //after attached or released
     HCD_STATE_SETUP     = 2,      //after successfull setup, or stop
     HCD_STATE_STARTED   = 3,      //after successfull start
+    HCD_STATE_DEAD      = 4,      //after crash
+
 };
 
 typedef struct usb_hcd {
@@ -97,20 +103,14 @@ typedef struct usb_hcd {
 
 typedef struct usb_device{
     //ALOT OF This struct is influenced bu XINU
-
-    //host controller for this dev
-    usb_hcd_t *usb_hcd;
-
-    //  Address of this device.  Set by USB core.
-    uint8_t address;
-
-
-
-
+    usb_hcd_t *usb_hcd;    //host controller for this dev
+    //void *hcd_dev_priv;   //priv data for this dev for example xhci_device_t
+    uint8_t address;    //  Address of this device.  Set by USB core.
+    uint8_t isRootHub;     //1 if this is a rootHub
 
     //Speed at which this device is attached to its hub.  Set by USB core.
-    enum usb_speed speed;
-
+    //enum usb_speed speed;
+    usb_speed_t speed;
 
     //Current configuration index of this USB device.  Set by USB core.
     uint8_t configuration;
@@ -148,10 +148,8 @@ typedef struct usb_device{
 
 
 typedef struct usb_xfer_request {
-
     // USB device to communicate with.
     struct usb_device *dev;
-
 
      // USB_XFERFLAG_ASYNC = AsyncMode, ie call to submit_endp_xfer_request does not wait for completion
     uint32_t xferFlags ;
@@ -195,13 +193,15 @@ typedef struct usb_xfer_request {
     // status of xfer USB_OK if complete and sucess...
     USBRESULT status;
 
-    uint16_t actual_xferlen;
+    uint32_t actual_xferlen;
 }usb_xfer_request_t;
 
 
 
 extern void usb_init(void);
 extern void usb_attach_hcd(usb_hcd_t *hcd) ;
+extern usb_device_t* usb_alloc_device(void);
+extern USBRESULT usb_attach_device(usb_device_t *dev);
 
 extern void usb_poll(void) ;
 //extern USBRESULT usb_attach_device(struct usb_device *dev);
@@ -216,11 +216,11 @@ extern USBRESULT usb_control_msg(struct usb_device *dev,
 
 extern struct usb_xfer_request* usb_alloc_xfer_request(uint16_t bufsize);
 extern void usb_free_xfer_request(struct usb_xfer_request* req);
-
+extern void usb_register_driver(struct usb_device_driver *driver);
 
 //DEBUG
 #ifdef USB_DEBUG
-void usb_register_driver(struct usb_device_driver *driver);
+
 extern void usb_debug_device_info(struct usb_device* dev);
 extern const char *usb_device_description(const struct usb_device *dev);
 extern void usb_log(int priority, const char *func,struct usb_device *dev, const char *format, ...);
@@ -252,6 +252,7 @@ extern const char *usb_direction_to_string(enum usb_direction dir) ;
 #define usb_error(format, ...)
 #define usb_info(format, ...)
 #define usb_debug(format, ...)
+#define usb_dev_debug3(dev,format, ...) 
 #endif
 
 #endif

@@ -9,6 +9,7 @@
 
 extern void spinlock(spinlock_t *lock);
 extern void spinunlock(spinlock_t *lock);
+extern void spinlock_init(spinlock_t *lck); //used if not init with MACRO SPINLOCK(x)
 
 
 #endif

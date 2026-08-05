@@ -1027,7 +1027,7 @@ RESULT uhcihcd_setup_schedule(uhci_hcd_device_t* priv) {
     //uhci_hcd_device_t* priv = dev->priv;
 
     page_t *stackpage = page_alloc_pages(GFP_DMA16,0);   //4096 bytes
-    priv->stackframe = (uint32_t*)PAGE2VIRT(stackpage);
+    priv->stackframe = (void*)PAGE2VIRT(stackpage);
     usb_debug("Setup Schedule for stackframe at %#lx\n",priv->stackframe);
 
 

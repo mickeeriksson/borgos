@@ -14,6 +14,7 @@
 #define mmio_write32(addr, v)     (*((volatile uint32_t *)(addr)) = (uint32_t)(v))
 #define mmio_write32or(addr, v)   (*((volatile uint32_t *)(addr)) |= (uint32_t)(v))
 
+//TODO fix this for 32-bit processor, to do 2 32-bit writes?
 #define mmio_read64(addr)         (*((volatile uint64_t *)(addr)))
 #define mmio_write64(addr, v)     (*((volatile uint64_t *)(addr)) = (uint64_t)(v))
 #define mmio_write64or(addr, v)   (*((volatile uint64_t *)(addr)) |= (uint64_t)(v))

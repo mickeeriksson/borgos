@@ -59,7 +59,7 @@
 
 //#define VECTORTABLE_BASE          0xFFFF0000
 
-#define MAXCPU    4
+#define MAXCPU    64
 #define MAXPROC  16
 
 //Ticktimer
@@ -83,5 +83,8 @@
 //#define VFS_NAME_MAX       255	    // # chars in a file name
 //#define VFS_USEEXT2 1
 
+#define MAX_IF_DEVS 8
+
+#define MAX_INT_VECTORS 256
 
 #endif //_DEFAULTCONFIG_H_

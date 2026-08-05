@@ -5,6 +5,8 @@
 #include "log.h"
 #include <cpuid.h>
 
+#include "gdt.h"
+
 //struct cpustate;
 //extern struct cpustate *apic_id_cpumap[MAXAPIC_LOGICAL_CPUID];
 
@@ -21,6 +23,9 @@ struct arch_cpu_info {
     uint32_t cpuid_feature_ecx;
     uint32_t cpuid_feature_edx;
 
+
+    gdt_entry_64_t* per_cpu_gdt;
+    gdtr_ptr_t gdtptr;                //per cpu gdt ptr
 };
 
 

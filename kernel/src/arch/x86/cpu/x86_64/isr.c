@@ -8,9 +8,15 @@
 uint64_t irqcounter = 0;
 
 extern void apic_lapic_eoi(void);
+extern adr_t isr_stub_table[];
+
+adr_t isr_get_isr_stub_addr(uint8_t isrno) {
+    adr_t stub_addr = isr_stub_table[isrno];
+    return stub_addr;
+}
 
 void isr_pagefault_handler(trapframe_t *tframe) {
-    log_msg("PAGEFAULT trapframe=%#lx vectorno=%d, irqno=%#lx, ip=%#lx\n"
+    log_msg("PAGEFAULT trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
             ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
 
     // A page fault has occurred.
@@ -44,7 +50,7 @@ void isr_pagefault_handler(trapframe_t *tframe) {
 }
 
 void isr_gpf_handler(trapframe_t *tframe) {
-    log_msg("PAGEFAULT trapframe=%#lx vectorno=%d, irqno=%#lx, ip=%#lx\n"
+    log_msg("PAGEFAULT trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
             ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
 
     log_msg("GPF");
@@ -55,7 +61,7 @@ void isr_gpf_handler(trapframe_t *tframe) {
 
 
 void isr_division_handler(trapframe_t *tframe) {
-    log_msg("PAGEFAULT trapframe=%#lx vectorno=%d, irqno=%#lx, ip=%#lx\n"
+    log_msg("PAGEFAULT trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
             ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
 
     log_msg("DIVISION");
@@ -81,7 +87,7 @@ void isr_generic(trapframe_t *tframe) {
         isr_division_handler(tframe);
     }else if (tframe->isrno==6) {
         log_msg("ISR: intenable=%d irqon=%d\n",cpu->currentproc->intenable,irqOn);
-        log_msg("TRAP trapframe=%#lx vectorno=%d, irqno=%#lx, ip=%#lx\n"
+        log_msg("TRAP trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
                 ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
         PANIC("Invalid OPCODE");
     }else if (tframe->isrno==14) {
@@ -93,23 +99,25 @@ void isr_generic(trapframe_t *tframe) {
     }else if (tframe->isrno==0xFF) {
         //Spurious handler
         //DO NOTHING
-    }else if (tframe->isrno>=32 && tframe->isrno<=47) {
-        //IRQ
+    }else if (tframe->isrno>=32 && tframe->isrno<=95) {
+        //IRQ 32-63 = Normal IRQ
+        //IRQ 64-95 = MSI IRQ
         int irq= tframe->isrno-IRQ_STARTVECTOR;
+        log_msg("-- CPU[%d] IRQ=%d  (isrno=%d)\n",cpu->cpuid,irq,tframe->isrno);
         if (irq==0) {
-            //do EOI in reverse order. Du to schuling
+            //do EOI in reverse order. Due to scheduling
             //if not eoi before context_switch. Timer will never trigger again. (since we switch a irq-thread to a kernel/user thread.)
             //Snygga upp beroende på att timer ligger på IRQ0.
             //ev kanske inte hårdkodat till att vara just ett apic triggat IRQ?
             apic_lapic_eoi();
-            irq_process_irq(irq);
+            irq_process_irq(tframe->isrno,irq);
         }else {
-            irq_process_irq(irq);
+            irq_process_irq(tframe->isrno,irq);
             apic_lapic_eoi();
         }
     }else {
         log_msg("ISR: intenable=%d irqon=%d\n",cpu->currentproc->intenable,irqOn);
-        log_msg("TRAP trapframe=%#lx vectorno=%d, irqno=%#lx, ip=%#lx\n"
+        log_msg("TRAP trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
                 ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
         PANIC("IN ISR, UNHANDLED!");
     }

@@ -23,6 +23,10 @@ extern void hal_pci_init(void);
 extern void hal_start_scheduling(void);
 extern void hal_start_smp(void);
 
+extern void net_init(void);
+extern void net_poll(void);
+extern void net_test_arp(void);
+
 /*
     When kmain is called.
         * log_init has been called to set *log_putchar_ptr function pointer
@@ -110,20 +114,26 @@ void kmain_bp_enter(void){
     hal_start_scheduling();
 
 
-
+/*
     //test USB
     log_msg("***********************************************************************\n");
     log_msg("*                    START USB Subsystem!                             *\n");
     log_msg("***********************************************************************\n");
     register_usb_drivers();
     usb_init();
+*/
 
-/*
+    //log_msg("***********************************************************************\n");
+    //log_msg("*                    START Network Subsystem!                         *\n");
+    //log_msg("***********************************************************************\n");
+    //net_init();
+
+
+
     log_msg("***********************************************************************\n");
     log_msg("*                    START SMP!                                       *\n");
     log_msg("***********************************************************************\n");
     hal_start_smp();
-*/
 
     //cpptest_test();
 
@@ -132,21 +142,23 @@ void kmain_bp_enter(void){
     //-device isa-debug-exit,iobase=0xf4,iosize=0x04
     //-no-shutdown must not be used (otherwise anm excpetion will be thrown)
 
-
+    //net_test_arp();
+    cpu_t* cpu = CURRENTCPU;
 
     //Simulate work......
     int i=0;
     while(i<50){
         i+=1;
-        log_msg("WORK (%d)\n",i);
-        usb_poll();
-        mdelay(100);
+        log_msg("CPU[%d] WORK (%d)\n",cpu->cpuid,i);
+        //usb_poll();
+        //net_poll();
+        mdelay(1000);
         //HANG HERE
     }
 
 
     //Kmain setup is finished leave rest to started tasks....
-    cpu_t* cpu = CURRENTCPU;
+
     proc_t* idleproc = cpu->currentproc;
     cpu->idleproc = idleproc;   // dont set as idleproc until all setup is done, otherwise it will be starved when starting other kerneltasks.....
 
@@ -154,7 +166,7 @@ void kmain_bp_enter(void){
     i=0;
     while(i<5000){
         i+=1;
-        log_msg(".... NO WORK (%d)\n",i);
+        log_msg("CPU[%d].... NO WORK (%d)\n",cpu->cpuid,i);
         mdelay(100);
         //HANG HERE
     }

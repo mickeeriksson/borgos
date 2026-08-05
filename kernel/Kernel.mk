@@ -18,10 +18,12 @@ LDFILE = $(MACHDIR)/kernel.x86_64.ld.in
 KERNEL_CSRC := $(KERNEL_CSRC) \
 $(wildcard $(SRCDIR)/boot/*.c) \
 $(wildcard $(SRCDIR)/kcore/*.c) \
+$(wildcard $(SRCDIR)/net/*.c) \
 $(wildcard $(SRCDIR)/driver/*.c) \
 $(wildcard $(SRCDIR)/driver/pci/*.c) \
 $(wildcard $(SRCDIR)/driver/usb/*.c) \
 $(wildcard $(SRCDIR)/driver/usb/hid/*.c) \
+$(wildcard $(SRCDIR)/driver/net/*.c) \
 $(wildcard $(SRCDIR)/mem/*.c) \
 $(wildcard $(SRCDIR)/driver/video/*.c)
 
@@ -134,7 +136,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.S
 
 #kernel-elf: echo clean $(KERNEL_OBJS) kernel-lib
 #kernel-elf: echo clean kernel-lib
-kernel-elf: echo fastclean $(KERNEL_OBJS) 
+kernel-elf: echo fastclean $(KERNEL_OBJS)
 #	$(CPP) -E -P $(LDFILE) -o $(TARGETDIR)/kernel.ld
 #	$(CPP) -E -P $(LDFILE) -o kernel.ld
 

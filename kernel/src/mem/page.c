@@ -188,9 +188,13 @@ page_t* _alloc_pages_byorder(uint32_t flags,int order)
     page_t* p=0;
     zone_t* zone = &memoryzone[ZONENORMAL];
     if(flags & GFP_DMA16){
-        //free_area_t* freeArea = memoryzone[ZONEDMA16].free_area;
         zone = &memoryzone[ZONEDMA16];
     }
+    if(flags & GFP_DMA32){
+        //Same as normal, do nothing since NORMAL is default.
+        //zone = &memoryzone[ZONENORMAL];
+    }
+
     MMLOG("MMLOG Get Free page from zone=%s\n",zone->name);
 
     //kprintf("Alloc page for use=%s order=%d\n",usage,order);

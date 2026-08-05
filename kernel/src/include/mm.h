@@ -52,6 +52,17 @@ static inline adr_t PAGEALIGN_DOWN (adr_t base)
     return (base) & PAGEMASK;
 }
 
+static inline unsigned int size_to_pageorder(size_t size)
+{
+    unsigned int order = 0;
+    size = (size - 1) >> PAGESHIFT;
+    while (size) {
+        order++;
+        size >>= 1;
+    }
+    return order;
+}
+
 #define PHYS2PFN(v)     (((v)>>PAGESHIFT) - PFN_OFFSET)
 
 #define PFN2PHYS(p)     ( (p+PFN_OFFSET)<<PAGESHIFT )
@@ -72,7 +83,7 @@ typedef struct free_area_struct {
 #define ZONECOUNT   5
 #define ZONENORMAL  0  // < 4gb
 #define ZONEDMA16     1
-#define ZONEDMA32     2   // not used???
+#define ZONEDMA32     2   // not used for x86 platforms?
 #define ZONEHIGH     3
 #define ZONEUNKNOWN    4
 

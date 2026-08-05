@@ -4,6 +4,9 @@
 #include "cpu/mmio.h"
 #include "delay.h"
 #include "error.h"
+#include "bits.h"
+#include "driver/apic.h"
+#include "mm.h"
 
 #define  LAPIC_REG_APICID	   0x0020
 #define  LAPIC_REG_APICVER	   0x0030
@@ -30,6 +33,18 @@
 
 
 adr_t cpulapicadr=NULL;
+
+
+
+#define IOAPIC_MAX 32
+uint8_t ioapic_count=0;
+ioapic_t* ioapics[IOAPIC_MAX] ;
+
+
+
+
+ioapic_irq_override_t* ioapic_irq_source_override[MAX_INT_VECTORS];
+
 
 void apic_set_lapic_addr(adr_t local_apic_addr) {
     cpulapicadr = local_apic_addr;
@@ -61,6 +76,149 @@ static void lapic_wait_idle(adr_t lapicadr) {
 
 void apic_init(void) {
     log_msg("APIC init(), do nothing for now!\n");
+    ioapic_count=0;
+    for (int i=0;i<IOAPIC_MAX;i++) {
+        ioapics[i]=0;
+    }
+}
+
+uint32_t apic_ioapic_read(adr_t ioapicadr,uint8_t index) {
+    mmio_write8(ioapicadr+0x00,index); //index id
+    uint32_t data = mmio_read32(ioapicadr+0x10); //data
+    return data;
+}
+void apic_ioapic_write(adr_t ioapicadr,uint8_t index,uint32_t data) {
+    mmio_write8(ioapicadr+0x00,index); //index id
+    mmio_write32(ioapicadr+0x10,data); //data
+    return;
+}
+
+void apic_ioapic_irqoverride_add(uint8_t bus_source,uint8_t irq_source, uint16_t flags,uint32_t global_sys_intr) {
+    ioapic_irq_override_t* e = ioapic_irq_source_override[irq_source];
+    if (e!=NULL) {
+        PANIC("DUAL OVERRIDE ENTRIES FOR IRQ");
+    }
+    e = kmalloc(sizeof(ioapic_irq_override_t),NULL);
+    e->bus_source=bus_source;
+    e->irq_source=irq_source;
+    e->flags=flags;
+    e->global_sys_intr=global_sys_intr;
+    ioapic_irq_source_override[irq_source] = e;
+}
+
+ioapic_irq_override_t* apic_ioapic_irqoverride_get(uint8_t irq_source) {
+    return ioapic_irq_source_override[irq_source];
+}
+
+
+void apic_ioapic_add(uint8_t ioapicid,adr_t ioapicadr,uint32_t global_sys_intr_base) {
+    ioapic_t* ioapic;
+    //test if this I/O APIC already exists?
+    for (int i=0;i<IOAPIC_MAX;i++) {
+        if (ioapics[i]>0) {
+            ioapic = ioapics[i];
+            if (ioapic->ioapicid==ioapicid) {
+                log_msg("This I/O APIC is already registered skip!\n");
+            }
+        }
+    }
+
+    ioapic = kmalloc(sizeof(ioapic_t),NULL);
+
+
+    ioapic->ioapicid = ioapicid;
+    ioapic->ioapicadr = ioapicadr;
+    ioapic->global_sys_intr_base = global_sys_intr_base;
+
+    //Scan I/O APIC
+    //mmio_write8(ioapicadr+0x00,0x00); //index id
+    //uint32_t index = mmio_read32(ioapicadr+0x10); //data
+    uint32_t index = apic_ioapic_read(ioapicadr,0x00);
+
+    //mmio_write8(ioapicadr+0x00,0x01); //index id
+    //uint32_t versionreg = mmio_read32(ioapicadr+0x10); //data
+    uint32_t versionreg = apic_ioapic_read(ioapicadr,0x01);
+
+    uint8_t version = bits_32_get(versionreg,0,7);
+    uint8_t prq = bits_32_get(versionreg,15,15);
+    uint8_t pincount = bits_32_get(versionreg,16,23)+1;
+
+    log_msg("I/O APIC index = %d\n",index);
+    log_msg("I/O APIC version = %#x (0x20=2.0)\n",version);
+    log_msg("I/O APIC prq = %d\n",prq);
+    log_msg("I/O APIC pincount = %d\n",pincount);
+
+    ioapic->index = index;
+    ioapic->version = version;
+    ioapic->prq = prq;
+    ioapic->pincount=pincount;
+
+    ioapics[ioapic_count] = ioapic;
+    ioapic_count++;
+    return;
+}
+
+ioapic_t* apic_ioapic_get(uint8_t irq) {
+    ioapic_t* ioapic;
+    for (int i=0;i<IOAPIC_MAX;i++) {
+        if (ioapics[i]>0) {
+            ioapic = ioapics[i];
+            if (irq>=ioapic->global_sys_intr_base
+                && irq<(ioapic->global_sys_intr_base+ioapic->pincount)) {
+                //found matching ioapic
+                return ioapic;
+            }
+        }
+    }
+    return 0;
+}
+
+void apic_ioapic_route_irq(uint8_t irqno, uint8_t xapicid,uint8_t vector) {
+    uint8_t triggermode = 1; //(level)
+    uint8_t polarity = 1; //(active low)
+    uint8_t irqsource = irqno; //(active low)
+
+    //get override
+    ioapic_irq_override_t* ovr = apic_ioapic_irqoverride_get(irqno);
+    if (ovr!=NULL) {
+        irqsource = ovr->irq_source;
+
+        if ((ovr->flags & 0x03) != 0x03) {
+            log_msg("Override polarity\n");
+            if ((ovr->flags & 0x03) == 0x01) {
+                log_msg("Override polarity as active high\n");
+                polarity = 0; //active low
+            }else {
+                PANIC("Unsupported polarity override\n");
+            }
+        }
+        if ( ((ovr->flags>>2) & 0x03) != 0x03) {
+            log_msg("Override trigger mode\n");
+            PANIC("Unsupported trigger mode override\n");
+        }
+
+        //build RT entry
+        uint64_t e=0;
+        e = bits_64_set(e, vector,0,7);     //isr vector , normally irq + IRQ_STARTVECTOR
+        e = bits_64_set(e, 0,8,10);    //delivery mode 000 = fixed
+        e = bits_64_set(e, 0,11,11);    //destination mode = physical
+        e = bits_64_set(e, polarity,13,13);    //polarity, 1=low, 0=high
+        e = bits_64_set(e, triggermode,15,15);    //trigger mode, 1=level
+        e = bits_64_set(e, 1,16,16);    //1=masked ,
+        e = bits_64_set(e, xapicid,56,63);   //destination
+
+        ioapic_t* ioapic = apic_ioapic_get(irqsource);
+        if (ioapic==NULL) {
+            PANIC("NO I/O APIC found for IRQ. Is APIC supported on this system?\n");
+        }
+        apic_ioapic_write(ioapic->ioapicadr,0x10+2*irqsource+1,(uint32_t) (e>>32));
+        apic_ioapic_write(ioapic->ioapicadr,0x10+2*irqsource,(uint32_t) (e & 0xFFFFFFFF));
+
+        //unmask
+        e = bits_64_set(e, 0,16,16);    //1=masked ,
+        apic_ioapic_write(ioapic->ioapicadr,0x10+2*irqsource,(uint32_t) (e & 0xFFFFFFFF));
+    }
+    return;
 }
 
 void apic_lapic_init(void) {

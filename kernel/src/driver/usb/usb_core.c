@@ -44,6 +44,7 @@ usb_device_t* usb_alloc_device(void)
     devx->manufacturer = kmalloc(USB_MAXSTRINGLEN,0);
     devx->product = kmalloc(USB_MAXSTRINGLEN,0);
 
+    devx->isRootHub = 0;
     devx->address = 0;
     devx->manufacturer[0]='\0';
     devx->product[0]='\0';
@@ -120,9 +121,9 @@ USBRESULT usb_submit_xfer_request(struct usb_xfer_request *req){
 
     if(req->endpoint_desc){
         //return usbhcd->submit_endp_xfer_request(req,1,2000);
-        return usbhcd->submit_endp_xfer_request(req);
+        return usbhcd->submit_endp_xfer_request(req);  //ASYNC
     }else{
-        return usbhcd->submit_ctrl_xfer_request(req,1,2000);
+        return usbhcd->submit_ctrl_xfer_request(req,1,2000); //SYNC
     }
     return USB_OK;
 }
@@ -137,8 +138,7 @@ USBRESULT usb_control_msg(usb_device_t *dev,
 
     struct usb_xfer_request *req;
     req = usb_alloc_xfer_request(wLength);
-
-    log_msg("alloc xfer_request at %#lx\n",req);
+    //log_msg("alloc xfer_request at %#lx\n",req);
 
     req->dev = dev;
     req->endpoint_desc = endpoint_desc;
@@ -534,17 +534,21 @@ USBRESULT usb_attach_device(usb_device_t *dev){
     }
     usb_dev_debug(dev,"Using bMaxPacketSize0=%d\n", dev->descriptor.bMaxPacketSize0);
 
-
+#ifdef USB_DEBUG
     usb_debug_device_info(dev);
+#endif
 
-
-
-    uint8_t address = nextUsbAdress++;
-    usb_dev_debug(dev,"**** TODO REPLACE, but got address for now = %d\n", address);
-    if((res = usb_set_address(dev, address)) !=USB_OK){
-        PANIC("usb_set_address");
-        goto error;
+    if (dev->address>0) {
+        //this device already has an adress?? XHCI?
+    }else {
+        uint8_t address = nextUsbAdress++;
+        usb_dev_debug(dev,"**** TODO REPLACE, but got address for now = %d\n", address);
+        if((res = usb_set_address(dev, address)) !=USB_OK){
+            PANIC("usb_set_address");
+            goto error;
+        }
     }
+    log_msg("Set address to %d\n",dev->address);
 
 
 
@@ -556,8 +560,10 @@ USBRESULT usb_attach_device(usb_device_t *dev){
         PANIC("usb_read_device_descriptor");
         goto error;
     }
-    usb_debug_device_info(dev);
 
+#ifdef USB_DEBUG
+    usb_debug_device_info(dev);
+#endif
 
 
     // Read product and manufacturer strings if present.
@@ -571,8 +577,9 @@ USBRESULT usb_attach_device(usb_device_t *dev){
         usb_get_ascii_string(dev, dev->descriptor.iManufacturer,dev->manufacturer, USB_MAXSTRINGLEN);
     }
     usb_dev_debug(dev,"GOT MANUFACTURER STRING : %s\n",dev->manufacturer);
+#ifdef USB_DEBUG
     usb_debug_device_info(dev);
-
+#endif
     //return USB_ERROR;
 
 
@@ -643,13 +650,13 @@ USBRESULT usb_enumerate_hcd_roothub(usb_hcd_t* hcd) {
                 devx->usb_hcd = (struct usb_hcd *) hcd;
 
                 //enum kUSB_speed portSpeed = kUSB_SPEED_UNKNOWN;
-                enum kUSB_speed portSpeed = hcd->hcd_roothub_port_speed(hcd,port);
-                devx->speed = USB_SPEED_LOW;
-                if (devx->speed==USB_SPEED_LOW) {
-                    usb_debug("  SPEED_LOW (%d)\n",portSpeed);
-                }else {
-                    usb_debug("  SPEED_FULL (%d)\n",portSpeed);
-                }
+                //enum kUSB_speed portSpeed = hcd->hcd_roothub_port_speed(hcd,port);
+                //devx->speed = USB_SPEED_LOW;
+                //if (devx->speed==USB_SPEED_LOW) {
+                //    usb_debug("  SPEED_LOW (%d)\n",portSpeed);
+                //}else {
+                //    usb_debug("  SPEED_FULL (%d)\n",portSpeed);
+                //}
 
                 usb_attach_device(devx);
 
@@ -669,7 +676,7 @@ void usb_enumerate_roothubs(void) {
     for (int i=0;i<MAX_HCD_DEVS;i++) {
         usb_hcd_t* hcd = hcd_devices[i];
         if (hcd>0 && hcd->hcdstate==HCD_STATE_STARTED) {
-            usb_enumerate_hcd_roothub(hcd);
+            //usb_enumerate_hcd_roothub(hcd);
         }
     }
 }
@@ -685,6 +692,7 @@ void usb_poll(void) {
 
 }
 
+extern void xhci_selftest_interrupt(usb_hcd_t *hcd);
 void usb_init(void) {
     log_msg("USB setup!\n");
     for (int i=0;i<MAX_HCD_DEVS;i++) {
@@ -708,4 +716,7 @@ void usb_init(void) {
     //    hcd_devices[i]=0;
     //}
     usb_enumerate_roothubs();
+
+
+    //xhci_selftest_interrupt(hcd_devices[0]);
 }

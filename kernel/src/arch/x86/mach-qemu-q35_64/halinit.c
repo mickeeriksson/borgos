@@ -10,12 +10,15 @@
 #include "cpu/cpu_cpu.h"
 #include "cpu/cpu_getcpu.h"
 #include "driver/acpi.h"
+#include "driver/apic.h"
 #include "driver/hpet.h"
 #include "driver/vsystimer.h"
 #include "bits.h"
 #include "delay.h"
 #include "irq.h"
 #include "proc.h"
+#include "cpu/gdt.h"
+#include "cpu/idt.h"
 #include <cpuid.h>
 #include <stdio.h>
 #include <string.h>
@@ -45,6 +48,7 @@ extern RESULT multiboot2_set_boot_vfb(struct fb_info* vfb);
 extern void multiboot2_verify_freemem(void);
 extern RESULT multiboot2_set_bootmem(struct bootmem_info* bootmem,adr_t bootimage_end);
 extern RESULT multiboot2_set_bootmem_map(struct bootmem_info* bootmem) ;
+extern void multiboot2_get_acpi_rsdp(adr_t* acpi_rsdp_adr,void* rsdp,adr_t* acpi_xsdp_adr,void* xsdp) ;
 
 extern void arch_cpu_debugprint( cpu_t* cpup) ;
 extern void arch_cpu_init(int cpuid) ;
@@ -71,6 +75,7 @@ extern void apic_lapic_init(void);
 extern void apic_lapic_timer_init(uint8_t irqno);
 extern void apic_lapic_timer_start(uint8_t irqno, uint32_t intervallmillis);
 extern void apic_start_ap(uint8_t apic_id, uint8_t vector) ;
+extern void apic_ioapic_add(uint8_t ioapicid,adr_t ioapicadr,uint32_t global_sys_intr_base) ;
 
 extern void pic8259_init_disabled(void);
 extern void pci_config_init(void);
@@ -147,6 +152,16 @@ void hal_init_with_bootinfo2(adr_t bootinfoaddr ) {
 
     multiboot2_set_bootmem_map(&bootmeminfo);
 
+    memset(&acpi_info,0,sizeof(acpi_info_t));
+    multiboot2_get_acpi_rsdp(&acpi_info.uefi_rsdp_adr, &acpi_info.rsdp, &acpi_info.uefi_xsdp_adr, &acpi_info.xsdp);
+    log_msg("GOT ACPI ADR FROM MBOOT2\n");
+    log_msg("  RSDP = %#lx\n",acpi_info.uefi_rsdp_adr);
+    log_msg("  XSDP = %#lx\n",acpi_info.uefi_xsdp_adr);
+
+    acpi_info_t* acpiinfo = &acpi_info;
+    log_msg("acpiinfo = %#lx\n",acpiinfo);
+
+    return;
 }
 
 void hal_init_bootinfo(void) {
@@ -406,18 +421,39 @@ void hal_parse_APIC_from_madt(void) {
                 log_msg("    This IS BP, skip mapping, already done\n");
             }else {
                 //AP
-                log_msg("    MAP AP cpuid=%d to apicid=%d\n",numcores,e->apicid);
-                cpu_t* ap = &cpu[numcores];
-                cpu_init_cpustate(numcores);
-                ap->archcpu.xapic_logicalid=e->apicid;
-                apic_id_cpumap[e->apicid] = ap;
-                numcores++;
-                cpu_numcores++;
+                if (e->apicid < 255) {
+                    log_msg("    MAP AP cpuid=%d to xapic_logical_id=%d\n",numcores,e->apicid);
+                    if (numcores>=MAXCPU) {
+                        PANIC("THIS computer has more cores than MAXCPU!\n");
+                    }
+                    cpu_t* ap = &cpu[numcores];
+                    cpu_init_cpustate(numcores);
+                    ap->archcpu.xapic_logicalid=e->apicid;
+                    apic_id_cpumap[e->apicid] = ap;
+                    numcores++;
+                    cpu_numcores++;
+                }else {
+                    log_msg("    SKIP AP xapic_logical_id=%d\n",e->apicid);
+                }
             }
         }else if (entry->type == MADT_type_IOAPIC) {
             log_msg("  PARSE Entry Type 1: I/O APIC\n");
+            struct MADT_entry_IOAPIC* e = (struct MADT_entry_IOAPIC*) entryptr;
+            log_msg(" I/O APIC  ioapicid=%d\n", e->ioapicid);
+            log_msg(" I/O APIC  ioapicid=%#lx\n", e->ioapicadr );
+            log_msg(" I/O APIC  global_sys_intr_base=%d\n", e->global_sys_intr_base );
+            apic_ioapic_add(e->ioapicid,P2V(e->ioapicadr),e->global_sys_intr_base) ;
+
         }else if (entry->type == MADT_type_IOAPICINTOVERRIDE) {
             log_msg("  PARSE Entry Type 2: I/O APIC Interrupt Source Override\n");
+            struct MADT_entry_IOAPIC_INTOVERRIDE* e = (struct MADT_entry_IOAPIC_INTOVERRIDE*) entryptr;
+            log_msg(" I/O APIC  bussource=%d\n", e->bussource);
+            log_msg(" I/O APIC  irqsource=%d\n", e->irqsource);
+            log_msg(" I/O APIC  global_sys_intr=%d\n", e->global_sys_intr);
+            log_msg(" I/O APIC  flags=%#x\n", e->flags);
+            log_msg(" I/O APIC  flags (polarity) =%#x\n", (e->flags & 0x03));
+            log_msg(" I/O APIC  flags (trigger mode)     =%#x\n", (e->flags >> 2) & 0x03 );
+            apic_ioapic_irqoverride_add(e->bussource,e->irqsource, e->flags,e->global_sys_intr);
         }else if (entry->type == MADT_type_IOAPICNMISOURCE) {
             log_msg("  PARSE Entry type 3: I/O APIC Non-maskable interrupt source\n");
         }else if (entry->type == MADT_type_LAPICNMI) {
@@ -458,7 +494,7 @@ void hal_init_cpuinterrupts() {
     //PANIC("TODO hal_init_cpuinterrupts!");
 }
 
-void hal_start_cpuinterrupts() {
+void hal_start_cpuinterrupts(int intervallmillis) {
     //called once from each BP/AP
 
     cpu_t* cpu = CURRENTCPU;
@@ -468,10 +504,10 @@ void hal_start_cpuinterrupts() {
     //log_msg("**********************************************************************\n");
     //log_msg("intenable=%d irqon=%d irqBefLog=%d\n",cpu->intenable,cpu_read_irq(),irqBefLog);
     apic_lapic_timer_init(0); //init timer on irq=0
-    irq_add_irq_handler(0,irq_cpu_localtimer_tick_cb);
+    irq_add_irq_handler(0,irq_cpu_localtimer_tick_cb,0);
     //log_msg("**********************************************************************\n");
     //log_msg("intenable=%d irqon=%d\n",cpu->intenable,cpu_read_irq());
-    int intervallmillis=500;
+    //int intervallmillis=1000;
     apic_lapic_timer_start(0,intervallmillis);
     cpu->ticks_hz =1000/intervallmillis;
 }
@@ -479,6 +515,7 @@ void hal_start_cpuinterrupts() {
 
 
 extern void hal_ap_init(void);
+//bpstart CPU
 void hal_start_ap(int cpunr) {
     log_msg("\nStart SMP CPU[%d]\n", cpunr);
 
@@ -493,13 +530,32 @@ void hal_start_ap(int cpunr) {
     *(volatile uint64_t *)(P2V(0x8000) + 0x10) = stackptr;
     *(volatile uint64_t *)(P2V(0x8000) + 0x18) = (uint64_t)hal_ap_init;
 
-    cpu_t *ccpu = &cpu[cpunr];
-    apic_start_ap(ccpu->archcpu.xapic_logicalid, 0x08);
+    cpu_t *apcpu = &cpu[cpunr];
+
+    //setup proc_t for bp
+    proc_t* apstartproc = proc_alloc();
+    char* namestr = kmalloc(32,0);
+    sprintf(namestr,"apstart CPU[%d]",cpunr);
+    strlcpy(&apstartproc->name[0], namestr, 32);
+    kfree(namestr);
+    apstartproc->kstackaddr = stackaddr;
+    apstartproc->kstacksize = stacksize;
+    apstartproc->pgdir = (adr_t) kernelpagetable;
+    apstartproc->slice_ticks = 0x0FFFFFFFFFFFFFFF;
+    apstartproc->state=RUNNING;  //dont preemp for now.
+    apcpu->currentproc = apstartproc;
+    apstartproc->archcpu_context.cr3 = (adr_t) V2P(apstartproc->pgdir);
+    //bpcpu->idleproc = bpstartproc;   // dont set as idleproc until all setup is done, otherwise it will be starved when starting other kerneltasks.....
+    int pid = proc_newpid(apstartproc); // get a new pid for proc.
+    log_msg("allocated bp [%d] at %#lx, pid=%d\n", apstartproc->name, apstartproc,pid);
+
+
+    apic_start_ap(apcpu->archcpu.xapic_logicalid, 0x08);
     //send_init_sipi(/* SIPI-vektor = */ 0x08);
     //}
 
     for (int i=0; i<10; i++) {
-        volatile uint8_t started = ccpu->started;
+        volatile uint8_t started = apcpu->started;
         if (started) {
             return;
         }
@@ -569,7 +625,8 @@ void hal_bp_init(void) {
 
     //Only done for BP.
     log_msg("\nPARSE ACPI\n");
-    acpi_map_acpi_mem();
+    //acpi_map_acpi_mem();
+    acpi_tables_init();
     acpi_debugprint_entries();
 
     hal_init_hpet();
@@ -581,6 +638,12 @@ void hal_bp_init(void) {
     apic_init(); //does nothing for now
     hal_parse_APIC_from_madt();
     delay_initcpu();
+
+
+    //setup per cpu gdt and tss
+    gdt_init_per_cpu();
+    //switch to percpu GDT
+    gdt_flush_gdt64_current_cpu();
 
     /*
     log_msg("********************** Start delay test\n");
@@ -596,7 +659,7 @@ void hal_bp_init(void) {
 
     //The following is done both for BP and AP.
     hal_init_cpuinterrupts();
-    hal_start_cpuinterrupts();
+    hal_start_cpuinterrupts(200);
 
     /*
     while (1) {
@@ -625,20 +688,22 @@ void hal_ap_init(void) {
     arch_cpu_debugprint(&cpu[cpuid]);
 
     cpu_t* ccpu = CURRENTCPU;
-    ccpu->started = 1;
+    //ccpu->started = 1;
 
-    int i=0;
-    while (1) {
-        i=i+1;
-        //log_msg("i=%d\n", i);
-    }
-
-
-    PANIC("TODO LOAD IDT for AP"); //interrupt::init_exceptions_ap();  //loads IDT (same as for BSP)
+    //log_msg("TODO LOAD IDT for AP ??? "); //interrupt::init_exceptions_ap();  //loads IDT (same as for BSP)
+    idt_load_idt64_current_cpu();
+    //PANIC("TODO LOAD IDT for AP"); //interrupt::init_exceptions_ap();  //loads IDT (same as for BSP)
     //load IDT HERE!
     delay_initcpu();
+
+    //switch to percpu GDT
+    gdt_flush_gdt64_current_cpu();
+
+    proc_t *p = ccpu->currentproc;
+    log_msg("currentproc for cpu[%d]=%#lx\n",cpuid,p);
+
     hal_init_cpuinterrupts();
-    hal_start_cpuinterrupts();
+    hal_start_cpuinterrupts(1000);
     /*
     let irqbforelog = interrupt::cpu_read_irq();
     let cpu = cpu::getCurrentCPU();
@@ -653,7 +718,21 @@ void hal_ap_init(void) {
     debug!("intenable={} irqon={}\n",cpu.intenable,interrupt::cpu_read_irq());
     //apic::apic_lapic_timer_start(0,1500);
     */
-    PANIC("TODO hal_ap_init!");
+    //PANIC("TODO hal_ap_init!");
+
+    ccpu->started = 1;
+
+    mdelay(100);
+
+
+    int i=0;
+    while(1){
+        i+=1;
+        log_msg("CPU[%d]....3s NO WORK (%d)\n",ccpu->cpuid,i);
+        mdelay(3000);
+        //HANG HERE
+    }
+
 }
 
 void hal_start(void) {

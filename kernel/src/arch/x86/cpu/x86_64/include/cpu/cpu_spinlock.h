@@ -79,6 +79,11 @@ typedef struct arch_spinlock{
 
 #define SPINLOCK(x)  spinlock_t x = {.lock=SPIN_UNLOCKED }
 
+static inline void spinlock_init(spinlock_t *lck){
+    lck->lock=SPIN_UNLOCKED;
+}
+
+
 static inline void spinlock(spinlock_t *lck){
     irq_save();
 #ifdef SMP

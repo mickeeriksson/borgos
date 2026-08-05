@@ -23,6 +23,6 @@ typedef struct idt_ptr {
     uint16_t unused;
 } __attribute__((packed)) idtr_ptr_t;
 
-
+extern void idt_load_idt64_current_cpu();
 
 #endif

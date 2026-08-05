@@ -42,6 +42,11 @@ typedef struct RSDT {
     uint32_t entries[];
 } __attribute__ ((packed)) RSDT_t;
 
+typedef struct XSDT {
+    SDT_t header;
+    uint64_t entries[];
+} __attribute__ ((packed)) XSDT_t;
+
 struct sdt_address_structure
 {
     uint8_t address_space_id;    // 0 - system memory, 1 - system I/O
@@ -84,6 +89,22 @@ struct MADT_entry_CPULAPIC {
     uint32_t flags;
 } __attribute__ ((packed)) ;
 
+struct MADT_entry_IOAPIC {
+    struct MADT_entry entryheader;
+    uint8_t ioapicid;
+    uint8_t resv;
+    uint32_t ioapicadr;
+    uint32_t global_sys_intr_base;
+} __attribute__ ((packed)) ;
+
+struct MADT_entry_IOAPIC_INTOVERRIDE {
+    struct MADT_entry entryheader;
+    uint8_t bussource;
+    uint8_t irqsource;
+    uint32_t global_sys_intr;
+    uint16_t flags;
+} __attribute__ ((packed)) ;
+
 
 typedef struct MADT {
     SDT_t header;
@@ -106,8 +127,27 @@ typedef struct MCFG {
     uint8_t reserved[8];
 } __attribute__ ((packed)) MCFG_t;
 
-extern void acpi_map_acpi_mem(void);
+
+typedef struct acpi_info {
+    uint8_t version;
+    adr_t sdtadr;   // pointer to RSDT or XSDT depending on version;
+    size_t sdtptrsize; // 4 or 8 depending on rsdt or xsdt
+    size_t entrycount; // nr of entries in table
+    void* entries;
+    adr_t uefi_rsdp_adr;
+    RSDP_t rsdp;
+    adr_t uefi_xsdp_adr;
+    XSDP_t xsdp;
+}acpi_info_t;
+
+extern acpi_info_t acpi_info;
+
+
+//extern void acpi_map_acpi_mem(void);
 extern void acpi_debugprint_entries(void);
 extern SDT_t* acpi_find(char* signature);
+extern void acpi_tables_init(void);
+
+
 
 #endif

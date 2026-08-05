@@ -18,12 +18,26 @@ enum usb_direction {
     USB_DIRECTION_IN = 1    /* Device to host */
 };
 
+// bmRequestType fields.
+#define USB_DIR_OUT                 0x00u
+#define USB_DIR_IN                  0x80u
+
 /** TODO */
+/*
 enum usb_speed {
     USB_SPEED_HIGH = 0,
     USB_SPEED_FULL = 1,
     USB_SPEED_LOW  = 2,
-};
+};*/
+
+typedef enum usb_speed {
+    USB_SPEED_UNKNOWN = 0,
+    USB_SPEED_LOW,              // 1.5 Mb/s
+    USB_SPEED_FULL,             // 12 Mb/s
+    USB_SPEED_HIGH,             // 480 Mb/s
+    USB_SPEED_SUPER,            // 5 Gb/s
+    USB_SPEED_SUPER_PLUS,       // 10 Gb/s and above
+} usb_speed_t;
 
 /** TODO */
 enum usb_transfer_type {
@@ -150,13 +164,15 @@ enum usb_sublanguage_id {
 
 /** Standard SETUP data for a USB control request.  See Table 9-2 in Section 9.3
  * of the USB 2.0 specification.  */
-struct USB20_control_setup_data {
+
+
+typedef struct USB20_control_setup_data {
     uint8_t  bmRequestType;
     uint8_t  bRequest;
     uint16_t wValue;
     uint16_t wIndex;
     uint16_t wLength;
-} __attribute__((packed));
+}   __attribute__((packed)) usb_setup_packet_t;
 
 
 /** Standard format of USB device descriptors.  See Table 9-8 in 9.6.1 of the

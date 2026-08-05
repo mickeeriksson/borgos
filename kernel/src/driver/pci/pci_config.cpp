@@ -315,6 +315,7 @@ extern "C" uint32_t pci_config_get_capabillity_ptr(pcidevice_t* pcidev,uint8_t i
     uint16_t status = rawdata >> 16;
     uint32_t hascap = bits_32_get(status,4,4);
     if (!hascap ) {
+        log_msg("This device does not have capabillities\n");
         return 0;
     }
     rawdata = pci_config_read32(pcidev,0x34); //cap pointer

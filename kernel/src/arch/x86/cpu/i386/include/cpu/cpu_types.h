@@ -25,4 +25,22 @@ typedef unsigned long		reg_t;     //a register entry, used mainly so define size
     typedef __SIZE_TYPE__   size_t;
 #endif
 
+
+
+
+/* Reverse the bytes of a 16-bit unsigned integer */
+#define SWAP_UINT16(x) (((uint16_t)(x) >> 8) | ((uint16_t)(x) << 8))
+
+/* Check the CPU architecture endianness */
+//#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define be16_to_cpu(x) SWAP_UINT16(x)
+#define cpu_to_be16(x) SWAP_UINT16(x)
+//#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+//#define be16_to_cpu(x) (uint16_t)(x)
+//#define cpu_to_be16(x) (uint16_t)(x)
+//#else
+//#error "Unknown architecture endianness"
+//#endif
+
+
 #endif

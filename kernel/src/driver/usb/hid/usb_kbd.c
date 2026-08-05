@@ -31,10 +31,13 @@ void usb_kbd_xfercbfunc(struct usb_xfer_request *req){
 
     int l = req->actual_xferlen;
     log_msg("USB KBD: CALLBACK GOT DATA LEN = %d \n",l);
+    log_msg("USB KBD: ----------------------- \n",l);
+    log_msg("         ",l);
     for(int i=0;(i<l) && (i<16);i++){
         log_msg("%#02x ",((uint8_t*)req->xferbuf)[i]);
     }
     log_msg("\n");
+    log_msg("USB KBD: ----------------------- \n",l);
 
     ///send again
     req->status = -999;

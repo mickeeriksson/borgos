@@ -3,6 +3,8 @@
 #include "log.h"
 #include "irq.h"
 #include "scheduler.h"
+#include "spinlock.h"
+#include "mm.h"
 #include "cpu/cpu_getcpu.h"
 
 // Pushcli/popcli are like cli/sti except that they are matched:
@@ -10,26 +12,55 @@
 // are off, then pushcli, popcli leaves them off.
 
 
-IrqHandler irqhandler[256];
+//IrqHandler irqhandler[MAX_INT_VECTORS];
+
+static irq_handler_t *isr_chain[MAX_INT_VECTORS];           //index in isr-vectors (NOT IRQ Vecotrs???)
+static spinlock_t     isr_chain_lock[MAX_INT_VECTORS];
 
 //TODO, reqwrite to make each irq a vector of handlers to allow an irq to trigger multiple handlers
 
 void irq_inithandlers(void) {
-    for (int i = 0; i < 256; i++) {
-        irqhandler[i] = NULL;
+    for (int i = 0; i < MAX_INT_VECTORS; i++) {
+        //irqhandler[i] = NULL;
+        isr_chain[i] = NULL;
     }
+
+    for (int i = 0; i < MAX_INT_VECTORS; i++) {
+        spinlock_init(&isr_chain_lock[i]);
+    }
+
 }
 
-void irq_add_irq_handler(uint8_t irq,IrqHandler handler) {
-    irq_save();
-    irqhandler[irq]=handler;
-    irq_restore();
+//void irq_add_irq_handler(uint8_t irq,IrqHandler handler) {
+void irq_add_irq_handler(uint8_t isrno,irq_handler_fn fn,void* ctx) {
+    //if (irqno >= MAX_INT_VECTORS) {
+    //    PANIC("irq_add_irq_handler: irqno >= MAX_INT_VECTORS");
+    //}
+
+    irq_handler_t *h = kmalloc(sizeof(irq_handler_t),0);
+    h->fn = fn;
+    h->ctx = ctx;
+
+    spinlock(&isr_chain_lock[isrno]);
+    h->next = isr_chain[isrno];
+    isr_chain[isrno] = h;
+    spinunlock(&isr_chain_lock[isrno]);
 }
 
-void irq_process_irq(uint8_t irq){
-    if (irqhandler[irq] != NULL) {
-        irqhandler[irq]();
+uint8_t irq_get_free_msi(void) {
+    for (int i = MSIIRQ_STARTVECTOR; i < MSIIRQ_STARTVECTOR+MSIIRQ_COUNT; i++) {
+        if (isr_chain[i] == NULL) {
+            return i;
+        }
     }
+    return 0;
+}
+
+
+void irq_process_irq(uint8_t isrno,uint8_t irqno){
+    //if (irqhandler[irq] != NULL) {
+    //    irqhandler[irq]();
+   // }
     /*
     let elistlock = &mut IRQHANDLERS[irq as usize].lock();
     let elist : &mut Vec<IrqHandlerInfo> = elistlock.as_mut();
@@ -42,9 +73,28 @@ void irq_process_irq(uint8_t irq){
         debug!("Delegate to IRQ HANDLER ENTRY {:?}",e);
         (e.irq_cb)(e.dev);
     }*/
+
+
+    irq_handler_t *h = isr_chain[isrno];
+    uint8_t handled = 0;
+
+    while (h) {
+        if (h->fn(h->ctx) == IRQ_HANDLED) {
+            handled = 1;
+        }
+        h = h->next;
+    }
+
+    if (!handled) {
+        // spurious/delad IRQ som ingen kändes vid – logga, räkna, ev. maskera
+    }
+
+    //lapic_send_eoi();  // EOI skickas EN gång, efter hela kedjan
+    // eoi görs i hal isr.c
 }
 
-void irq_cpu_localtimer_tick_cb(){
+//void irq_cpu_localtimer_tick_cb(){
+irq_status_t irq_cpu_localtimer_tick_cb(void *ctx){
     cpu_t* cpu = CURRENTCPU;
     //int irqOn = cpu_read_irq();
     cpu->ticks++;
@@ -56,7 +106,7 @@ void irq_cpu_localtimer_tick_cb(){
         if (p->slice_ticks>0) {
             p->slice_ticks--;   //count down ticks to preemtion.
         }
-        log_msg("TICK CPU[%d]:%d slice:%#lx\n",cpu->cpuid,cpu->ticks,p->slice_ticks);
+        //log_msg("TICK CPU[%d]:%d slice:%#lx\n",cpu->cpuid,cpu->ticks,p->slice_ticks);
     }
     // check sleeping tasks
 
@@ -70,6 +120,7 @@ void irq_cpu_localtimer_tick_cb(){
     }else {
         log_msg("Skip scheduler_schedule cpu->ncli=%dh\n",p->ncli);
     }
+    return IRQ_HANDLED;
 }
 
 

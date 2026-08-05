@@ -10,7 +10,7 @@ wget https://download.qemu.org/qemu-10.2.2.tar.xz
 tar xvJf qemu-10.2.2.tar.xz
 cd qemu-10.2.2
 
-./configure --target-list=x86_64-softmmu,x86_64-linux-user --enable-modules --enable-gtk
+./configure --target-list=x86_64-softmmu,x86_64-linux-user --enable-modules --enable-gtk --enable-slirp
 
 make
 make install

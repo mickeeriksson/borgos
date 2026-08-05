@@ -99,6 +99,12 @@ const char *usb_speed_to_string(enum usb_speed speed)
             return "full";
         case USB_SPEED_LOW:
             return "low";
+        case USB_SPEED_SUPER:
+            return "super";
+        case USB_SPEED_SUPER_PLUS:
+            return "super plus";
+        case USB_SPEED_UNKNOWN:
+            return "unknown";
     }
     return "unknown";
 }

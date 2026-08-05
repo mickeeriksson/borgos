@@ -7,6 +7,7 @@
 #include "bootmem.h"
 #include "mm.h"
 
+
 //extern adr_t bootmem_start_address;
 
 #define MULTIBOOT_TAG_TYPE_ACPI_OLD 14
@@ -18,7 +19,23 @@ struct multiboot_tag_acpiold {
     char OEMID[6];
     uint8_t Revision;
     uint32_t RsdtAddress;
-};
+} __attribute__ ((packed));
+
+#define MULTIBOOT_TAG_TYPE_ACPI_NEW 15
+struct multiboot_tag_acpinew {
+    multiboot_uint32_t type;
+    multiboot_uint32_t size;
+    char Signature[8];
+    uint8_t Checksum;
+    char OEMID[6];
+    uint8_t Revision;
+    uint32_t RsdtAddress;      // deprecated since version 2.0
+
+    uint32_t Length;
+    uint64_t XsdtAddress;
+    uint8_t ExtendedChecksum;
+    uint8_t reserved[3];
+}__attribute__ ((packed));
 
 adr_t mbi_addr;
 
@@ -99,7 +116,12 @@ void multiboot2_debugprint(adr_t addr) {
             case MULTIBOOT_TAG_TYPE_ACPI_OLD:
                 log_msg("  MULTIBOOT_TAG_TYPE_ACPI_OLD\n");
                 struct multiboot_tag_acpiold* tag_acpiold=(struct multiboot_tag_acpiold*) tag;
-                log_msg("    RsdtAddress: 0x%lx\n", tag_acpiold->RsdtAddress);
+                log_msg("    RsdtAddress (v1.0): 0x%lx\n", tag_acpiold->RsdtAddress);
+                break;
+            case MULTIBOOT_TAG_TYPE_ACPI_NEW:
+                log_msg("  MULTIBOOT_TAG_TYPE_ACPI_NEW\n");
+                struct multiboot_tag_acpinew* tag_acpinew=(struct multiboot_tag_acpinew*) tag;
+                log_msg("    XsdtAddress (v2.0+): 0x%lx\n", tag_acpinew->XsdtAddress);
                 break;
             default:
                 log_msg("  UNKNOWN MULTIBOOT2 TAG type:%d\n", tag->type);
@@ -118,6 +140,31 @@ struct multiboot_tag *multiboot2_gettag(uint32_t tagtype) {
     }
     return 0;
 }
+
+void multiboot2_get_acpi_rsdp(adr_t* acpi_rsdp_adr,void* rsdp,adr_t* acpi_xsdp_adr,void* xsdp) {
+
+
+    struct multiboot_tag *acpiold = multiboot2_gettag(MULTIBOOT_TAG_TYPE_ACPI_OLD) ;
+    if (acpiold!=0) {
+        log_msg("GOT MULTIBOOT_TAG_TYPE_ACPI_OLD\n");
+        struct multiboot_tag_acpiold* tag_acpiold=(struct multiboot_tag_acpiold*) acpiold;
+        adr_t rsdtaddr = ((adr_t)tag_acpiold)+8;
+        log_msg("    RsdtAddress (v1.0): 0x%lx\n", rsdtaddr);
+        *acpi_rsdp_adr = rsdtaddr;
+        memcpy(rsdp,((void*)rsdtaddr),sizeof(struct multiboot_tag_acpiold)-8);
+
+    }
+    struct multiboot_tag *acpinew = multiboot2_gettag(MULTIBOOT_TAG_TYPE_ACPI_NEW) ;
+    if (acpinew!=0) {
+        log_msg("  MULTIBOOT_TAG_TYPE_ACPI_NEW\n");
+        struct multiboot_tag_acpinew* tag_acpinew=(struct multiboot_tag_acpinew*) acpinew;
+        adr_t xsdtaddr = ((adr_t)tag_acpinew)+8;
+        log_msg("    XsdtAddress (v2.0+): 0x%lx\n", xsdtaddr);
+        *acpi_xsdp_adr = xsdtaddr;
+        memcpy(xsdp,((void*)xsdtaddr+8),sizeof(struct multiboot_tag_acpinew)-8);
+    }
+}
+
 
 void multiboot2_verify_freemem(void) {
     struct multiboot_tag *basicmemtag = multiboot2_gettag(MULTIBOOT_TAG_TYPE_BASIC_MEMINFO) ;
@@ -311,6 +358,12 @@ RESULT multiboot2_set_bootmem_map(struct bootmem_info* bootmem) {
                 case MULTIBOOT_MEMORY_RESERVED:
                     bootmem_memmapentry[i].type = BOOTMEMTYPE_RESERVED;
                     break;
+                case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE:
+                    bootmem_memmapentry[i].type = BOOTMEMTYPE_ACPI_RECLAIMABLE;
+                    break;
+                case MULTIBOOT_MEMORY_NVS:
+                    bootmem_memmapentry[i].type = BOOTMEMTYPE_NVS;
+                    break;
                 default:
                     bootmem_memmapentry[i].type = BOOTMEMTYPE_UNKNOWN;
                     break;
@@ -321,6 +374,7 @@ RESULT multiboot2_set_bootmem_map(struct bootmem_info* bootmem) {
     }
     return ERROR;
 }
+
 
 void multiboot2_init(adr_t addr) {
     mbi_addr = addr;

@@ -59,6 +59,9 @@ typedef struct pci_config_regs {
 
 //samma register som offsett
 #define PCICONFIG_COMMAND           0x04
+#define PCICONFIG_IRQLINE           0x3C    // 1 byte
+
+
 
 #define PCICONFIG_CMD_IO_SPACE       (1u << 0)
 #define PCICONFIG_CMD_MEM_SPACE      (1u << 1)

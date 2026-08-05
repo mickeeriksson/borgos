@@ -38,12 +38,9 @@ irq\irqno:
         //exceptions without error code
         ISR_NOERRORCODE %i
     .elseif i>=32 && i<=47
-        //.set irqnum,i-32
-        //IRQ %(i-32),%i
         ISR_NOERRORCODE %i
-    .elseif i>=132 && i<=147
-        //.set irqnum,i-32
-        //IRQ %(i-32),%i
+    .elseif i>=64 && i<=95
+        //MSI IRQ
         ISR_NOERRORCODE %i
     .else
     .endif
@@ -65,7 +62,7 @@ isr_stub_table:
         stubentry %i
     .elseif i>=32 && i<=47
         stubentry %i
-    .elseif i>=132 && i<=147
+    .elseif i>=64 && i<=95
         stubentry %i
     .else
         .quad 0
