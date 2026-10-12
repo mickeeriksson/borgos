@@ -42,6 +42,8 @@ irq\irqno:
     .elseif i>=64 && i<=95
         //MSI IRQ
         ISR_NOERRORCODE %i
+    .elseif i>=128 && i<=129
+        ISR_NOERRORCODE %i
     .else
     .endif
     .set i,i+1
@@ -64,6 +66,8 @@ isr_stub_table:
         stubentry %i
     .elseif i>=64 && i<=95
         stubentry %i
+    .elseif i>=128 && i<=129
+        stubentry %i
     .else
         .quad 0
     .endif
@@ -72,10 +76,9 @@ isr_stub_table:
 
 isr_common:
     //# 1. Spara CPU-register (Context Save)
-    //pushq $42 //dummy
 
     // 15 register * 8 = 120 bytes
-    // + felkod + isr (4byte var) = 128 bytes total
+    // + felkod + isr (8byte var) = 128 bytes total
     //128 % 16 = 0 (dvs tacken blir rätt alignad vid call isr_generic)
     pushq %rax
     pushq %rbx
@@ -104,8 +107,11 @@ isr_common:
     //# 2. Skicka stackpekaren som argument till C-funktionen (RDI = första argumentet)
     movq %rsp, %rdi
     //# 3. Anropa C-koden
+    cld              //sätt DF=0, för säkerhets skull
     call isr_generic
 
+.globl isr_exit
+isr_exit:
     # 4. Återställ CPU-register
     popq %r15
     popq %r14
@@ -122,9 +128,6 @@ isr_common:
     popq %rcx
     popq %rbx
     popq %rax
-
-    //städa dummy
-    //addq $8, %rsp
 
     //# 5. Städa upp avbrottsnummer och felkod
     addq $16, %rsp

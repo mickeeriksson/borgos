@@ -6,6 +6,7 @@
 #include "error.h"
 #include "bootmem.h"
 #include "mm.h"
+#include "module.h"
 
 
 //extern adr_t bootmem_start_address;
@@ -65,6 +66,16 @@ void multiboot2_debugprint(adr_t addr) {
                 struct multiboot_tag_string* tag_cmdline=(struct multiboot_tag_string*) tag;
                 log_msg("    multiboot2 cmd line:              %s\n", tag_cmdline->string);
 
+                break;
+            case MULTIBOOT_TAG_TYPE_MODULE:
+                log_msg("  MULTIBOOT_TAG_TYPE_MODULE\n");
+                struct multiboot_tag_module* tag_module=(struct multiboot_tag_module*) tag;
+
+                uint32_t mod_start = tag_module->mod_start;
+                uint32_t mod_end = tag_module->mod_end;
+                char* cmdline = &tag_module->cmdline[0];
+                log_msg("    multiboot2 Module: %s\n",cmdline);
+                log_msg("    mod_start=%#lx, mod_end=%#lx\n",mod_start,mod_end);
                 break;
             case MULTIBOOT_TAG_TYPE_BOOT_LOADER_NAME: // Memory map
                 log_msg("  MULTIBOOT_TAG_TYPE_BOOT_LOADER_NAME\n");
@@ -198,10 +209,47 @@ void multiboot2_verify_freemem(void) {
 
 }
 
+int multiboot2_check_moduleoverlap(adr_t new_mbi) {
+    adr_t addr = mbi_addr;
+    log_msg("multiboot2 addr: 0x%x\n", addr);
+    log_msg("Test if any modules overlap new_mbi addr @ %#lx\n", new_mbi);
+
+    //uint32_t mbisize = *((uint32_t*) addr);
+    //uint32_t mbireserved = *((uint32_t*) (addr+4));
+
+    //log_msg("multiboot2 size: 0x%x\n", mbisize);
+    //log_msg("multiboot2 reserved: 0x%x\n", mbireserved);
+
+    struct multiboot_tag* tag;
+    // addr + 8 hoppar över total_size och reserved
+    for (tag = (struct multiboot_tag *)(addr + 8);tag->type != 0;tag = (struct multiboot_tag *)((char *)tag + ((tag->size + 7) & ~7))) {
+        //log_msg("tag type: %d (0x%x) len: 0x%x\n", tag->type,tag->type,tag->size);
+        switch (tag->type) {
+            case MULTIBOOT_TAG_TYPE_MODULE:
+                log_msg("  MULTIBOOT_TAG_TYPE_MODULE\n");
+                struct multiboot_tag_module* tag_module=(struct multiboot_tag_module*) tag;
+
+                uint32_t mod_start = tag_module->mod_start;
+                uint32_t mod_end = tag_module->mod_end;
+                char* cmdline = &tag_module->cmdline[0];
+
+                if ((mod_start > new_mbi) || (mod_end > new_mbi)) {
+                    log_msg("    multiboot2 Module: %s overlaps new_mbi\n",cmdline);
+                    PANIC("Multiboot2 overlap");
+                    return -1;
+                }
+                break;
+            default:
+                //log_msg("  UNKNOWN MULTIBOOT2 TAG type:%d\n", tag->type);
+                break;
+        }
+    }
+    return 0;
+}
 
 void multiboot2_relocate(adr_t new_mbi) {
     //test if any modules is put before mbi?
-    log_msg("TODO, MULTIBOOT2, Test if any modules is located before multiboot2 info\n");
+    //log_msg("TODO, MULTIBOOT2, Test if any modules is located before multiboot2 info\n");
     //If so skip relocate and just set free mem to last of mbi and mods
 
     //adr_t new_mbi = bootmem_start_address;
@@ -212,9 +260,47 @@ void multiboot2_relocate(adr_t new_mbi) {
     //bootmem_start_address = bootmem_start_address+len;
 
     //relocate modules
-    log_msg("TODO, MULTIBOOT2, Relocate Modules\n");
+    //log_msg("TODO, MULTIBOOT2, Relocate Modules\n");
     //bootmem_start_address = last of the copied modules.
+}
 
+int multiboot2_relocate_modules(struct bootmem_info* bootmem) {
+    adr_t addr = mbi_addr;
+    log_msg("multiboot2 addr: 0x%x\n", addr);
+    //log_msg("Test if any modules overlap new_mbi addr @ %#lx\n", new_mbi);
+
+    //uint32_t mbisize = *((uint32_t*) addr);
+    //uint32_t mbireserved = *((uint32_t*) (addr+4));
+
+    //log_msg("multiboot2 size: 0x%x\n", mbisize);
+    //log_msg("multiboot2 reserved: 0x%x\n", mbireserved);
+
+    struct multiboot_tag* tag;
+    // addr + 8 hoppar över total_size och reserved
+    for (tag = (struct multiboot_tag *)(addr + 8);tag->type != 0;tag = (struct multiboot_tag *)((char *)tag + ((tag->size + 7) & ~7))) {
+        //log_msg("tag type: %d (0x%x) len: 0x%x\n", tag->type,tag->type,tag->size);
+        switch (tag->type) {
+            case MULTIBOOT_TAG_TYPE_MODULE:
+                log_msg("MULTIBOOT_TAG_TYPE_MODULE\n");
+                struct multiboot_tag_module* tag_module=(struct multiboot_tag_module*) tag;
+
+                uint64_t mod_start = tag_module->mod_start;
+                uint64_t mod_end = tag_module->mod_end;
+                char* cmdline = &tag_module->cmdline[0];
+                log_msg("Relocate multiboot2 Module: %s @\n",cmdline,mod_start);
+
+                adr_t newmodstart = bootmem->heaptop;
+                size_t modlen = mod_end - mod_start;
+                memcpy((void*) newmodstart, (void*)mod_start, modlen);
+                module_add(P2V(newmodstart),P2V(newmodstart+modlen),cmdline);
+                bootmem->heaptop = bootmem->heaptop + modlen;
+                break;
+            default:
+                //log_msg("  UNKNOWN MULTIBOOT2 TAG type:%d\n", tag->type);
+                break;
+        }
+    }
+    return 0;
 }
 
 RESULT multiboot2_set_boot_vfb(struct fb_info* vfb) {
@@ -299,7 +385,9 @@ RESULT multiboot2_set_bootmem(struct bootmem_info* bootmem,adr_t bootimage_end) 
 
                     //if ((mbisstart >= bootmemstart) && (mbisstart < end)){
                         //log_msg(" multiboot2 structure is in this range relocate!!\n" );
-
+                        if (multiboot2_check_moduleoverlap(bootmemstart) < 0 ) {
+                            PANIC("Multiboot2 OVERLAP");
+                        }
                         //align to 4096
                         //bootmem_start_address = (bootmem_start_address & ~0xFFF) + 0x1000;
                         //log_msg("new bootmem_start_address = 0x%x\n", bootmem_start_address);
@@ -314,8 +402,10 @@ RESULT multiboot2_set_bootmem(struct bootmem_info* bootmem,adr_t bootimage_end) 
                     //}
 
                     //test for multiboot modules
-                    log_msg("TODO test for multiboot modules\n");
-
+                    //log_msg("TODO test for multiboot modules\n");
+                    log_msg("bootmem->heaptop before relocateing modules = %#lx\n",bootmem->heaptop);
+                    multiboot2_relocate_modules(bootmem);
+                    log_msg("bootmem->heaptop after relocateing modules = %#lx\n",bootmem->heaptop);
 
 
                     return OK;

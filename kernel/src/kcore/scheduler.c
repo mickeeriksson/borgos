@@ -5,8 +5,10 @@
 #include "mm.h"
 #include <string.h>
 
-//#define SCHLOG(...)    log_msg(__VA_ARGS__)
-#define SCHLOG(...)
+#define SCHLOG(...)    log_msg(__VA_ARGS__)
+//#define SCHLOG(...)
+//#define SCHLOG3(...)    log_msg(__VA_ARGS__)
+#define SCHLOG3(...)
 
 struct list_head sleepinglist;
 struct list_head runnablelist;
@@ -82,11 +84,12 @@ extern void cpu_swapcontext(arch_cpu_context_t* prev, arch_cpu_context_t* new);
 
 void scheduler_switch_process(proc_t *prev, proc_t *newproc)
 {
-    newproc->slice_ticks=5;
+    newproc->slice_ticks=2;
     //switch_vm(new->page_map);
     //pgd_t* oldttb = pgtable_switch_userttb(new->pgdir);
     //mmu_tlb_flush_all();
-    log_msg("scheduler_switch_process TODO, fix TLB flush\n");
+    //log_msg("scheduler_switch_process TODO, fix TLB flush\n");
+    archproc_on_schedule(newproc);
     cpu_swapcontext(&prev->archcpu_context, &newproc->archcpu_context);
 }
 
@@ -103,6 +106,9 @@ void finish_switch(void) {
     spinunlock(&schedulerspin);
 }
 
+//entry to bottom och schedule
+//duplicates the last steps in finish switch
+//and then starts entry-method
 void scheduler_start_kerneltask(void (*entry)(void *), void *arg) {
     finish_switch();               /* samma delade unlock-logik som resume-vägen använder */
     entry(arg);                    /* kör tradens faktiska arbete — förväntas aldrig returnera */
@@ -110,12 +116,20 @@ void scheduler_start_kerneltask(void (*entry)(void *), void *arg) {
     __builtin_unreachable();
 }
 
+//entry to bottom och schedule
+//duplicates the last steps in finish switch
+//and then starts user binary by exiting with a iret. (recalls ip from stack
+//works in tandem with cpu_usertask_trampoline (in cpou_context_inc.S)
+void scheduler_start_usertask() {
+    finish_switch();               /* samma delade unlock-logik som resume-vägen använder */
+}
+
 
 void scheduler_schedule(void) {
     proc_t *p;
     cpu_t* cpu;
     proc_t *current_proc;
-    SCHLOG("Scheduler Entry, schedulerspin=%d\n",schedulerspin);
+    SCHLOG3("Scheduler Entry, schedulerspin=%d\n",schedulerspin);
     spinlock(&schedulerspin);
     schedulercounter++;
 
@@ -135,30 +149,30 @@ void scheduler_schedule(void) {
 
     //check if current proc_t timeslice is up.
     if (current_proc->slice_ticks==0) {
-        SCHLOG("  slice_ticks==0, do schedule\n");
+        SCHLOG3("  slice_ticks==0, do schedule\n");
         doSchedule=1;
     }
 
     if (doSchedule==1) {
-        SCHLOG("  doSchedule!\n");
+        SCHLOG3("  doSchedule!\n");
         p=scheduler_dequeue();
 
         if(p==0){
-            SCHLOG("Runnable queue empty current_proc=%d state=%d[%s]\n",current_proc->pid,current_proc->state,procstatename[current_proc->state]);
+            SCHLOG3("Runnable queue empty current_proc=%d state=%d[%s]\n",current_proc->pid,current_proc->state,procstatename[current_proc->state]);
             if(current_proc->state==RUNNING){
-                SCHLOG("scheduler:schedule No BETTER PROCS, Keep running \n");
+                SCHLOG3("scheduler:schedule No BETTER PROCS, Keep running \n");
                 schedulercounter--;
                 spinunlock(&schedulerspin);
-                SCHLOG("Scheduler Exit (early),  schedulerspin=%d\n",schedulerspin);
+                SCHLOG3("Scheduler Exit (early),  schedulerspin=%d\n",schedulerspin);
                 return;
             }else{
                 p=cpu->idleproc;
-                SCHLOG("scheduler:schedule No WORK TO BE DONE JUST IDLE! currentpid=%d, newpid=%d, cpu=%d\n",current_proc->pid,p->pid,cpu->cpuid);
+                SCHLOG3("scheduler:schedule No WORK TO BE DONE JUST IDLE! currentpid=%d, newpid=%d, cpu=%d\n",current_proc->pid,p->pid,cpu->cpuid);
             }
         }
         if (p) {
             // Switch to chosen process.
-            SCHLOG("Switch to proc %d\n",p->pid);
+            SCHLOG3("Switch to proc %d\n",p->pid);
 
 
             //Enque to old proc
@@ -177,6 +191,7 @@ void scheduler_schedule(void) {
             //log_msg("Proc table before switchproc (as status will be)\n");
             //scheduler_debug_ps();
             SCHLOG("scheduler:schedule cpu=%d switch from pid %d to pid %d\n",cpu->cpuid,current_proc->pid,p->pid);
+            SCHLOG("     %s   =>     %s\n",current_proc->name,p->name);
             //do the switch to current_proc
             cpu->currentproc = p;
             scheduler_switch_process(current_proc, p);
@@ -189,5 +204,5 @@ void scheduler_schedule(void) {
     //next 2 lines are the same as in finish_switch
     schedulercounter--;
     spinunlock(&schedulerspin);
-    SCHLOG("Scheduler Exit,  schedulerspin=%d\n",schedulerspin);
+    SCHLOG3("Scheduler Exit,  schedulerspin=%d\n",schedulerspin);
 }

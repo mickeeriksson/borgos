@@ -4,6 +4,8 @@
 #include "irq.h"
 #include "cpu.h"
 #include "bits.h"
+#include "syscall.h"
+
 
 uint64_t irqcounter = 0;
 
@@ -50,15 +52,41 @@ void isr_pagefault_handler(trapframe_t *tframe) {
 }
 
 void isr_gpf_handler(trapframe_t *tframe) {
-    log_msg("PAGEFAULT trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
+    log_msg("GPF trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
             ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
 
     log_msg("GPF");
     log_msg("Before PANIC");
 
-    PANIC("PAGEFAULT, UNHANDLED!");
+    PANIC("GPF, UNHANDLED!");
 }
 
+void isr_db_handler(trapframe_t *tframe) {
+    log_msg("DB trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
+            ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
+    PANIC("DB, UNHANDLED!");
+}
+void isr_bp_handler(trapframe_t *tframe) {
+    log_msg("BP trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
+            ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
+    PANIC("BP, UNHANDLED!");
+}
+
+void isr_nmi_handler(trapframe_t *tframe) {
+    log_msg("NMI trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
+            ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
+    PANIC("NMI, UNHANDLED!");
+}
+void isr_mc_handler(trapframe_t *tframe) {
+    log_msg("MC trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
+            ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
+    PANIC("MC, UNHANDLED!");
+}
+void isr_df_handler(trapframe_t *tframe) {
+    log_msg("DF trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
+            ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
+    PANIC("DF, UNHANDLED!");
+}
 
 void isr_division_handler(trapframe_t *tframe) {
     log_msg("PAGEFAULT trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
@@ -68,6 +96,20 @@ void isr_division_handler(trapframe_t *tframe) {
     log_msg("Before PANIC");
 
     PANIC("DIVISION BY ZERO, UNHANDLED!");
+}
+
+void isr_linux_syscall_handler(trapframe_t *tframe) {
+    log_msg("LINUX 32bit-SYSCALL trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
+            ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
+    PANIC("LINUX 32bit-SYSCALL , UNHANDLED!");
+    syscall_lnx_enter(tframe);
+}
+
+void isr_borg_syscall_handler(trapframe_t *tframe) {
+    log_msg("BORG-SYSCALL trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
+            ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
+    //PANIC("BORG-SYSCALL , UNHANDLED!");
+    syscall_enter(tframe);
 }
 
 extern void check_stackalign(void);
@@ -85,17 +127,25 @@ void isr_generic(trapframe_t *tframe) {
 
     if (tframe->isrno==0) {
         isr_division_handler(tframe);
+    }else if (tframe->isrno==1) {
+        isr_db_handler(tframe);
+    }else if (tframe->isrno==2) {
+        isr_nmi_handler(tframe);
+    }else if (tframe->isrno==3) {
+        isr_bp_handler(tframe);
     }else if (tframe->isrno==6) {
         log_msg("ISR: intenable=%d irqon=%d\n",cpu->currentproc->intenable,irqOn);
         log_msg("TRAP trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"
                 ,tframe,tframe->isrno,tframe->errno,tframe->instruction_pointer);
         PANIC("Invalid OPCODE");
+    }else if (tframe->isrno==8) {
+        isr_df_handler(tframe);
     }else if (tframe->isrno==14) {
-        //temp to get pagefault until snyggifiering
         isr_pagefault_handler(tframe);
     }else if (tframe->isrno==13) {
-            //temp to get pagefault until snyggifiering
             isr_gpf_handler(tframe);
+    }else if (tframe->isrno==18) {
+        isr_mc_handler(tframe);
     }else if (tframe->isrno==0xFF) {
         //Spurious handler
         //DO NOTHING
@@ -103,7 +153,7 @@ void isr_generic(trapframe_t *tframe) {
         //IRQ 32-63 = Normal IRQ
         //IRQ 64-95 = MSI IRQ
         int irq= tframe->isrno-IRQ_STARTVECTOR;
-        log_msg("-- CPU[%d] IRQ=%d  (isrno=%d)\n",cpu->cpuid,irq,tframe->isrno);
+        //log_msg("-- CPU[%d] IRQ=%d  (isrno=%d)\n",cpu->cpuid,irq,tframe->isrno);
         if (irq==0) {
             //do EOI in reverse order. Due to scheduling
             //if not eoi before context_switch. Timer will never trigger again. (since we switch a irq-thread to a kernel/user thread.)
@@ -115,6 +165,14 @@ void isr_generic(trapframe_t *tframe) {
             irq_process_irq(tframe->isrno,irq);
             apic_lapic_eoi();
         }
+    }else if (tframe->isrno==128) {
+        //ISR 128 = Linux type 32 bit Syscall
+        //ISR 129 = Borg Syscall
+        isr_linux_syscall_handler(tframe);
+    }else if (tframe->isrno==129) {
+        //ISR 128 = Linux type 32 bit Syscall
+        //ISR 129 = Borg Syscall
+        isr_borg_syscall_handler(tframe);
     }else {
         log_msg("ISR: intenable=%d irqon=%d\n",cpu->currentproc->intenable,irqOn);
         log_msg("TRAP trapframe=%#lx vectorno=%d, errno=%#lx, ip=%#lx\n"

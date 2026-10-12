@@ -88,3 +88,37 @@ pgtblrecord_t* pagetable_walk_getlvl1table(pgtblrecord_t* lvl4table, adr_t vaddr
     return lvl1table;
 }
 
+void pagetable_debuglvl(int lvl,uint64_t* rawentry) {
+    log_msg("Entry lvl %d (@ %#x)= %#x\n",lvl,rawentry,*rawentry);
+}
+
+pgtblrecord_t* pagetable_dbgwalk_getsubtable(pgtblrecord_t* table, uint64_t parenttbllvl, uint64_t idx) {
+
+    if (idx > 512) {
+        PANIC("Index > 512 not allowed for pagetable\n");
+    }
+    subtablentry_t* entry = (subtablentry_t*) &table[idx];
+    if (entry->p==0) {
+        //not present,
+        PANIC("Entry not present\n");
+    }else {
+        //log_msg("  parentlvl %d, idx=%d, Sub table present, entry = 0x%lx\n",parenttbllvl,idx,*((uint64_t*) entry));
+    }
+    return (pgtblrecord_t*) _pagetable_subtblentry_getbase(entry);
+}
+
+
+void pagetable_debugwalk(pgtblrecord_t* lvl4table, adr_t vaddr) {
+    uint64_t lvl1idx = (vaddr >> 12) & 0x1FF;
+    uint64_t lvl2idx = (vaddr >> (12+9)) & 0x1FF;
+    uint64_t lvl3idx = (vaddr >> (12+9+9)) & 0x1FF;
+    uint64_t lvl4idx = (vaddr >> (12+9+9+9)) & 0x1FF;
+
+    pagetable_debuglvl(4,(uint64_t*)&lvl4table[lvl4idx]);
+    pgtblrecord_t* lvl3table = pagetable_dbgwalk_getsubtable(lvl4table,4,lvl4idx);
+    pagetable_debuglvl(3,(uint64_t*)&lvl3table[lvl3idx]);
+    pgtblrecord_t* lvl2table = pagetable_dbgwalk_getsubtable(lvl3table,3,lvl3idx);
+    pagetable_debuglvl(2,(uint64_t*)&lvl2table[lvl2idx]);
+    pgtblrecord_t* lvl1table = pagetable_dbgwalk_getsubtable(lvl2table,2,lvl2idx);
+    pagetable_debuglvl(1,(uint64_t*)&lvl1table[lvl1idx]);
+}

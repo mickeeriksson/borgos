@@ -504,7 +504,7 @@ void hal_start_cpuinterrupts(int intervallmillis) {
     //log_msg("**********************************************************************\n");
     //log_msg("intenable=%d irqon=%d irqBefLog=%d\n",cpu->intenable,cpu_read_irq(),irqBefLog);
     apic_lapic_timer_init(0); //init timer on irq=0
-    irq_add_irq_handler(0,irq_cpu_localtimer_tick_cb,0);
+    irq_add_irq_handler(IRQ_STARTVECTOR+0,irq_cpu_localtimer_tick_cb,0);
     //log_msg("**********************************************************************\n");
     //log_msg("intenable=%d irqon=%d\n",cpu->intenable,cpu_read_irq());
     //int intervallmillis=1000;
@@ -597,7 +597,7 @@ void hal_noop_task(void* arg) {
         i+=1;
         log_msg("NO OP\n");
         //usb_poll();
-        mdelay(1000);
+        mdelay(100);
         //HANG HERE
     }
 
@@ -609,12 +609,12 @@ void hal_start_scheduling(void) {
     log_msg("\nStart Scheduling\n");
     cpu_t* cpu = CURRENTCPU;
     proc_t *p = cpu->currentproc;
-    p->slice_ticks=0;
+    p->slice_ticks=2;
 
-    //proc_t *nopp = proc_create_kernelproc("HAL_NO_OP");
-    //archproc_prepare_kernelproc_stack(nopp,hal_noop_task,0);
-    //scheduler_enqueue(nopp);
-    //log_msg("nopp=%#lx\n",nopp);
+    proc_t *nopp = proc_create_kernelproc("HAL_NO_OP");
+    archproc_prepare_kernelproc_stack(nopp,hal_noop_task,0);
+    scheduler_enqueue(nopp);
+    log_msg("nopp=%#lx\n",nopp);
 }
 
 //extern void acpi_test_sdt(void);
@@ -644,6 +644,8 @@ void hal_bp_init(void) {
     gdt_init_per_cpu();
     //switch to percpu GDT
     gdt_flush_gdt64_current_cpu();
+    //Install TSS
+    gdt_install_tss_current_cpu();
 
     /*
     log_msg("********************** Start delay test\n");
@@ -659,7 +661,7 @@ void hal_bp_init(void) {
 
     //The following is done both for BP and AP.
     hal_init_cpuinterrupts();
-    hal_start_cpuinterrupts(200);
+    hal_start_cpuinterrupts(100);
 
     /*
     while (1) {
@@ -698,6 +700,8 @@ void hal_ap_init(void) {
 
     //switch to percpu GDT
     gdt_flush_gdt64_current_cpu();
+    //Install TSS
+    gdt_install_tss_current_cpu();
 
     proc_t *p = ccpu->currentproc;
     log_msg("currentproc for cpu[%d]=%#lx\n",cpuid,p);

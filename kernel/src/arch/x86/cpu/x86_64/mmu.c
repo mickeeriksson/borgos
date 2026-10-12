@@ -6,10 +6,12 @@
 
 extern void* pagetable_init(void);
 extern pgtblrecord_t* pagetable_walk_getlvl1table(pgtblrecord_t* lvl4table, adr_t vaddr,uint64_t tblcreateflags);
+extern void pagetable_debugwalk(pgtblrecord_t* lvl4table, adr_t vaddr) ;
 
 void* kernelpagetable;
 
 
+#define MMU_PTE_US   (1<<2)  //U/S bit,
 #define MMU_PTE_PWT  (1<<3)  //PCD bit,
 #define MMU_PTE_PCD  (1<<4)  //PCD bit,
 
@@ -58,15 +60,32 @@ static inline void _mmu_pte_setrawflags(pagetableentry_t* entry,uint64_t flags)
 void mmu_map_page(void* pagetable,adr_t paddr,adr_t vaddr,uint64_t flags) {
     //TODO
     uint64_t pteflags = 0x23; //PRESENT, WRITABLE, ACCESSED
-    uint64_t createflags = 0x23; //PRESENT, WRITABLE, ACCESSED
+    uint64_t dircreateflags = 0x23; //PRESENT, WRITABLE, ACCESSED
 
     if (flags & MMU_DEVICE) {
         pteflags |= MMU_PTE_PCD | MMU_PTE_PWT; //set PCD bit, disable caching
     }
+    if (flags & MMU_USER) {
+        pteflags |= MMU_PTE_US;
+        dircreateflags |= MMU_PTE_US;
+    }
+
+
 
     //log_msg("\n Map PAGE addr 0x%lx\n", vaddr);
+    uint64_t lvl4idx = (vaddr >> (12+9+9+9)) & 0x1FF;
+    if (lvl4idx>256) {
+        //TODO if mapping of > 256 is allowed, theese pages must also be mapped at boot,
+        //otherwise they will not be copied to user  pgtbl later.
+        PANIC("Mapping of kernelpages > lvl4idx of 256 is not allowed\n");
+    }
+    if (lvl4idx>0 && lvl4idx<256) {
+        //TODO if mapping of > 256 is allowed, theese pages must also be mapped at boot,
+        //otherwise they will not be copied to user  pgtbl later.
+        PANIC("Mapping of userpages > 512Gb is not allowed\n");
+    }
 
-    pgtblrecord_t* lvl1tbl = pagetable_walk_getlvl1table(pagetable, vaddr,createflags);
+    pgtblrecord_t* lvl1tbl = pagetable_walk_getlvl1table(pagetable, vaddr,dircreateflags);
     //log_msg("Lvl1 (leaf) Page table at 0x%lx\n", lvl1tbl);
     uint64_t lvl1idx = (vaddr >> 12) & 0x1FF;
     pagetableentry_t* entry = (pagetableentry_t*) &lvl1tbl[lvl1idx];
@@ -78,6 +97,23 @@ void mmu_map_page(void* pagetable,adr_t paddr,adr_t vaddr,uint64_t flags) {
 
 void mmu_map_kernelpage(adr_t paddr,adr_t vaddr,uint64_t flags) {
     mmu_map_page(kernelpagetable,paddr, vaddr, flags) ;
+}
+
+void mmu_map_range(void* pagetable,adr_t paddr,adr_t vaddr,size_t bytes,uint64_t flags) {
+    adr_t vaddr_start = vaddr;
+    adr_t vaddr_end = vaddr_start + bytes;
+
+    while (vaddr < vaddr_end) {
+        mmu_map_page(pagetable,paddr,vaddr,flags) ;
+        log_msg("   MAP User page paddr=0x%lx  user vaddr=0x%lx\n",paddr,vaddr);
+        vaddr += PAGESIZE;
+        paddr += PAGESIZE;
+    }
+}
+
+void mmu_debug_walkadr(void* pagetable,adr_t vaddr) {
+    log_msg("Debug WALK %#x\n",vaddr);
+    pagetable_debugwalk(pagetable, vaddr);
 }
 
 
@@ -154,4 +190,21 @@ void mmu_init_kernel_pagetable(void) {
     //switch table by setting cr3
     mmu_asm_set_cr3(V2P(kernelpagetable));
     //PANIC("TODO");
+}
+
+void mmu_init_user_pagetable(adr_t kpgdir,adr_t upgdir) {
+    log_msg("INIT User PageTable from Kernel pagetable\n");
+    uint64_t* kptbl4 = (uint64_t*) kpgdir;
+    uint64_t* uptbl4 = (uint64_t*) upgdir;
+    // copy only upper half
+    for (int i=256;i<512;i++) {
+        uint64_t kentryraw = kptbl4[i];
+        //pagetableentry_t* kentry = (pagetableentry_t*) &kptbl4[i];
+        if (kentryraw > 0) {
+            //adr_t phys = i << (12+9+9);
+            log_msg("Copy entry %d = %#lx \n", i,kentryraw);
+            uptbl4[i] = kptbl4[i];
+        }
+    }
+
 }

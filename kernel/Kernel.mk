@@ -18,7 +18,9 @@ LDFILE = $(MACHDIR)/kernel.x86_64.ld.in
 KERNEL_CSRC := $(KERNEL_CSRC) \
 $(wildcard $(SRCDIR)/boot/*.c) \
 $(wildcard $(SRCDIR)/kcore/*.c) \
+$(wildcard $(SRCDIR)/syscall/*.c) \
 $(wildcard $(SRCDIR)/net/*.c) \
+$(wildcard $(SRCDIR)/fs/*.c) \
 $(wildcard $(SRCDIR)/driver/*.c) \
 $(wildcard $(SRCDIR)/driver/pci/*.c) \
 $(wildcard $(SRCDIR)/driver/usb/*.c) \

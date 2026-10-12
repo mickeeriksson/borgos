@@ -8,9 +8,11 @@
 #include "driver/driver.h"
 #include "driver/usb/usb.h"
 #include "delay.h"
-
+#include "module.h"
 #include "cpu.h"
 #include "proc.h"
+#include "scheduler.h"
+#include "fs/cpio.h"
 
 //extern void hal_init_early(void);
 
@@ -27,6 +29,7 @@ extern void net_init(void);
 extern void net_poll(void);
 extern void net_test_arp(void);
 
+extern void archproc_prepare_startinit(proc_t* p);
 /*
     When kmain is called.
         * log_init has been called to set *log_putchar_ptr function pointer
@@ -73,6 +76,29 @@ void register_usb_drivers(void) {
     }
 }
 
+void start_userstartinit(void) {
+    proc_t *initp = proc_create_userproc("STARTINIT");
+    log_msg("Created user proc %#x for startinit\n", initp);
+    archproc_prepare_startinit(initp);
+    scheduler_enqueue(initp);
+}
+
+void testIST_stacks(void) {
+    /*
+    log_msg("TSS virt addr: 0x%lx \n", &cpu->archcpu.tss);
+    log_msg("TSS IST1 offsett: 0x%lx \n", (void*)&cpu->archcpu.tss.ist[0] - (void*)&cpu->archcpu.tss);
+    log_msg("IST1 SP: 0x%lx \n", cpu->archcpu.tss.ist[0]);
+    log_msg("IST2 SP: 0x%lx \n", cpu->archcpu.tss.ist[1]);
+    log_msg("IST3 SP: 0x%lx \n", cpu->archcpu.tss.ist[2]);
+
+
+    //__asm__ volatile("int $18");
+    //__asm__ volatile("pushq $0; int $8");
+    //__asm__ volatile("int $2");
+    //__asm__ volatile("int $3");
+    //__asm__ volatile("int $2");
+*/
+}
 
 void kmain_bp_enter(void){
     log_msg("kmain: BP Enter!\n");
@@ -81,6 +107,16 @@ void kmain_bp_enter(void){
 
     hal_bp_init();
     kprintf("BOOT:Init HAL (for BSP) [OK]\n");
+
+    log_msg("***********************************************************************\n");
+    log_msg("*                    DETECTED MODULES!                                *\n");
+    log_msg("***********************************************************************\n");
+    module_debuglist();
+    module_entry_t* initrdmod = module_get("initrd");
+    if (initrdmod != NULL) {
+        log_msg("***********  DEBUG LIST initrd CPIO file **************************\n");
+        cpio_debug((void*)initrdmod->mod_start, initrdmod->mod_end-initrdmod->mod_start);
+    }
 
     log_msg("***********************************************************************\n");
     log_msg("*                    START DRIVER INIT!                               *\n");
@@ -108,6 +144,7 @@ void kmain_bp_enter(void){
     pci_config_driver_init();
 
 
+
     log_msg("***********************************************************************\n");
     log_msg("*                    START SCHEDULING!                                *\n");
     log_msg("***********************************************************************\n");
@@ -121,7 +158,7 @@ void kmain_bp_enter(void){
     log_msg("***********************************************************************\n");
     register_usb_drivers();
     usb_init();
-*/
+
 
     //log_msg("***********************************************************************\n");
     //log_msg("*                    START Network Subsystem!                         *\n");
@@ -134,7 +171,7 @@ void kmain_bp_enter(void){
     log_msg("*                    START SMP!                                       *\n");
     log_msg("***********************************************************************\n");
     hal_start_smp();
-
+*/
     //cpptest_test();
 
     //shutdown Qemu
@@ -147,6 +184,7 @@ void kmain_bp_enter(void){
 
     //Simulate work......
     int i=0;
+    /*
     while(i<50){
         i+=1;
         log_msg("CPU[%d] WORK (%d)\n",cpu->cpuid,i);
@@ -155,7 +193,12 @@ void kmain_bp_enter(void){
         mdelay(1000);
         //HANG HERE
     }
-
+*/
+    log_msg("***********************************************************************\n");
+    log_msg("*                    START USER (INIT)                                *\n");
+    log_msg("***********************************************************************\n");
+    //testIST_stacks();
+    start_userstartinit();
 
     //Kmain setup is finished leave rest to started tasks....
 

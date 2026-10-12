@@ -10,6 +10,7 @@
 .global cpu_swapcontext
 //.type cpu_swapcontext, @function
 
+//void cpu_swapcontext(arch_cpu_context_t* prev, arch_cpu_context_t* new);
 cpu_swapcontext:
     push %rbp
     push %rbx
@@ -22,11 +23,7 @@ cpu_swapcontext:
 
     # --- adressrymdsbyte ---
     mov TASK_CR3_OFFSET(%rsi), %rax
-    //cmp current_cr3(%rip), %rax
-    //je  1f                              # samma adressrymd — undvik onödig TLB-flush
     mov %rax, %cr3                      # laddar nytt PML4, flushar all icke-global TLB
-    //mov %rax, current_cr3(%rip)
-//1:
     mov TASK_RSP_OFFSET(%rsi), %rsp
     popfq
     pop %r15
@@ -43,3 +40,9 @@ cpu_kerneltask_trampoline:
     mov %r12, %rdi       # entry-pekaren låg smugglad i r12
     mov %r13, %rsi       # arg låg smugglad i r13 — blir första parametern per System V
     call scheduler_start_kerneltask
+
+
+.global cpu_usertask_trampoline
+cpu_usertask_trampoline:
+    call scheduler_start_usertask     # släpp scheduler-lås, rensa on_cpu osv.
+    jmp isr_exit

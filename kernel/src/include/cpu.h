@@ -4,6 +4,7 @@
 #include "config.h"
 #include "cpu/cpu_cpu.h"
 #include "proc.h"
+#include "cpu/isr.h"
 
 #include "types.h"
 //#include "../arch/x86/cpu/i386/include/cpu/cpu_types.h"

@@ -60,7 +60,7 @@ proc_t* proc_create_kernelproc(char* name) {
     proc_t* p = proc_alloc();
     uint32_t pid = proc_newpid(p);
 
-    //Allocate new stack for BP
+    //Allocate new stack for Kernel Proc
     page_t* stackpage = page_alloc_pages(0, 2); //64Kb  5=128, 4=64, 3=32, 2=16, 1=8
     adr_t stackaddr = PAGE2VIRT(stackpage);
     size_t stacksize = PAGESIZE << 2;
@@ -80,6 +80,61 @@ proc_t* proc_create_kernelproc(char* name) {
 
 
     log_msg("Created Kernelproc %d\n",pid);
+    return p;
+}
+
+
+proc_t* proc_create_userproc(char* name) {
+    proc_t* p = proc_alloc();
+    uint32_t pid = proc_newpid(p);
+    log_msg("New Userproc : %d\n",pid);
+
+    //Allocate new KernelStack for UserProc (Used on kernelentry)
+    page_t* stackpage = page_alloc_pages(0, 2); // 5=128kb, 4=64kb, 3=32kb, 2=16kb, 1=8kb
+    adr_t stackaddr = PAGE2VIRT(stackpage);
+    size_t stacksize = PAGESIZE << 2;
+    log_msg("PID:%d,Kernel stack addr: 0x%lx  size:0x%lx\n", pid,stackaddr,stacksize);
+
+
+    //adr_t newrsp = stackaddr + stacksize - 64;
+    //log_msg("Set BP stackpointer to : 0x%lx\n", newrsp);
+
+    //setup proc_t for bp
+    strlcpy(&p->name[0], name, 32);
+    p->kstackaddr = stackaddr;
+    p->kstacksize = stacksize;
+    p->pgdir = (adr_t) kernelpagetable;
+    p->slice_ticks = 0x0FFFFFFFFFFFFFFF;
+    p->state=EMBRYO;  //dont preemp for now.
+
+    //allocate pagedir for userproc.
+    page_t* pgdirpage = page_alloc_pages(0, 0);
+    p->upgdir = PAGE2VIRT(pgdirpage);
+    log_msg("Set up user pagedirectory at %#x\n",p->upgdir);
+    memset((void*)p->upgdir, 0, PAGESIZE);
+    mmu_init_user_pagetable(p->pgdir,p->upgdir);
+
+    //allocate userstack
+    page_t* ustackpage = page_alloc_pages(0, 2); // 5=128kb, 4=64kb, 3=32kb, 2=16kb, 1=8kb
+    log_msg("Allocated Userstack at %#lx\n",PAGE2VIRT(ustackpage));
+    size_t ustacksize = PAGESIZE << 2;
+    adr_t ustacktop = PAGESIZE << (9+9+9);
+    log_msg("Create ustacktop at %dMb %#lx\n",ustacktop/(1024*1024),ustacktop);
+    log_msg("Create ustacktop at %dGb %#lx\n",ustacktop/(1024*1024*1024),ustacktop);
+    p->ustackaddrvirt = PAGE2VIRT(ustackpage);
+    p->ustackaddr = ustacktop-ustacksize;
+    p->ustacksize = ustacksize;
+    log_msg("   ustacksize = %dKb \n",ustacksize/(1024));
+    adr_t paddr = V2P(PAGE2VIRT(ustackpage));
+    adr_t vaddr = p->ustackaddr;
+    log_msg("MAP userstack virt:%#lx => phys:%#lx\n",p->ustackaddr,paddr);
+    mmu_map_range((void*)p->upgdir,paddr,vaddr,p->ustacksize,MMU_USER) ;
+
+    //userprogram startar på adress 0x400_000
+    //denna mappning allokeras dock vid laddning av binären.
+
+
+    log_msg("Created Userproc %d\n",pid);
     return p;
 }
 

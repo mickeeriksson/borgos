@@ -18,30 +18,32 @@ typedef struct proc {
     //uint32_t    *upc;     // at 12: linkR at time of syscall,, //redundant remove????
     //uint32_t    *spsr;    // at 16: Umode cpsr
 */
-    struct list_head plist;              //list of procs used for lists (SLEEPING, RUNNABLE, RUNNING) used in scheduler.c
+    struct list_head plist;          //list of procs used for lists (SLEEPING, RUNNABLE, RUNNING) used in scheduler.c
 
-    uint32_t pid;                        // Process ID
-    enum procstate state;           // Process state
-    char name[33];               // Process name (debugging)
+    uint32_t pid;                    // Process ID
+    enum procstate state;            // Process state
+    char name[33];                   // Process name (debugging)
 
     //memory stuff
 #ifndef NOMMU
-    adr_t pgdir;                // Page table, OBS virtual address,
+    adr_t pgdir;                     // Kernel Page table, OBS virtual address,
+    adr_t upgdir;                    // User Page table, OBS virtual address,
 #endif
-    //struct trapframe *tf;        // Trap frame for current syscall
+    //struct trapframe *tf;          // Trap frame for current syscall
     adr_t kstackaddr;                // Bottom of kernel stack for this process  (as kernel VA addr)
     size_t kstacksize;
 
-    uint64_t slice_ticks;           //ticks left in this slice (before preemt)
+    uint64_t slice_ticks;            //ticks left in this slice (before preemt)
 
     int32_t ncli;                    // Depth of pushcli nesting.
-    int intenable;              // Were interrupts enabled before pushcli?, 
+    int intenable;                   // Were interrupts enabled before pushcli?,
     arch_cpu_context_t archcpu_context;
 
-    //adr_t context;               // stackpointer of context, when doing swap in scehdule.
+    //adr_t context;                 // stackpointer of context, when doing swap in scehdule.
 
-    //adr_t ustack_start;        // Bottom of user stack for this process (as user VA addr)
-    //adr_t ustack_top;          // Top of user stack for this process, (normaly KERNEL_VIRTUAL_BASE) (as user VA addr)
+    adr_t ustackaddr;                // Bottom of user stack for this process (as user VA addr)
+    adr_t ustackaddrvirt;            // Bottom of user stack for this process (as Kernel VA addr)
+    size_t ustacksize;               // Top of user stack for this process, (normaly KERNEL_VIRTUAL_BASE)
 
 
     //filehandling
@@ -75,7 +77,8 @@ extern void proc_init(void);
 extern proc_t* proc_alloc(void);
 extern uint32_t proc_newpid(proc_t* p);
 extern proc_t* proc_create_kernelproc(char* name);
+extern proc_t* proc_create_userproc(char* name);
 
 extern void archproc_prepare_kernelproc_stack(proc_t* p,void (*entry)(void *), void *arg) ;
-
+extern void archproc_on_schedule(proc_t* p) ;
 #endif

@@ -26,6 +26,7 @@ struct arch_cpu_info {
 
     gdt_entry_64_t* per_cpu_gdt;
     gdtr_ptr_t gdtptr;                //per cpu gdt ptr
+    tss64_t tss;
 };
 
 

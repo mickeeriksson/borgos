@@ -94,6 +94,7 @@ typedef struct free_area_struct {
 
 #define MMU_NORMAL  0x00
 #define MMU_DEVICE  0x01
+#define MMU_USER    0x02
 
 typedef struct zone_struct {
     //    spinlock_t        lock;
@@ -120,7 +121,7 @@ typedef struct page {
     // these must be first (free area handling)
     struct list_head pagelist;              //list of pages used for freelist, usedlist in page_alloc.c
     int order;                              //0=1 page, 1=2pages, 2=4pages
-    uint32_t usecount;                         //Usage count, release when decreased to 0
+    uint32_t usecount;                      //Usage count, release when decreased to 0
     zone_t *zone;                           //zone this page belongs to.
     int memsegment;                         // idx to bootmem_memmapentry , cxhange this to pointer later on.
 } page_t;
@@ -138,6 +139,9 @@ extern void* page_alloc_pages_virt(uint32_t flags, unsigned int order);
 extern void mmu_map_page(void* pagetable,adr_t paddr,adr_t vaddr,uint64_t flags) ;
 extern void mmu_map_kernelpage(adr_t paddr,adr_t vaddr,uint64_t flags);
 extern void mmu_map_device_region(adr_t adrstart,adr_t adrend);
+extern void mmu_init_user_pagetable(adr_t kpgdir,adr_t upgdir);
+extern void mmu_map_range(void* pagetable,adr_t paddr,adr_t vaddr,size_t bytes,uint64_t flags);
+extern void mmu_debug_walkadr(void* pagetable,adr_t vaddr) ;
 
 extern void* kmalloc(size_t size, uint32_t flags) ;
 extern void kfree(void* ptr);

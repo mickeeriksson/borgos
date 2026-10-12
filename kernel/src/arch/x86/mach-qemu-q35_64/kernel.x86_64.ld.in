@@ -46,9 +46,15 @@ SECTIONS {
     }
     . = trampoline_lma + SIZEOF(.trampoline);
 
+    . = ALIGN(4096);
+    startinit_lma = .;
+    .startinit 0x400000 : AT(startinit_lma) {
+        *(.startinit)
+    }
+    . = startinit_lma + SIZEOF(.startinit);
+
 
 	. += _LD_RELOCATE_BASE;
-
 
     .text.bootupperhigh ALIGN (4K) : AT (ADDR (.text.bootupperhigh) - _LD_RELOCATE_BASE){
           *(.text.bootupperhigh)

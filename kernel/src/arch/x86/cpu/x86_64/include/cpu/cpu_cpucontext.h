@@ -8,6 +8,8 @@ typedef struct arch_cpu_context {
     //context for proc, used in context_switch, saved in proc_t
     adr_t sp;
     adr_t cr3;  //saved page table
+    adr_t rsp0;
+    adr_t rsp0_stackpage;
 } arch_cpu_context_t;
 
 
